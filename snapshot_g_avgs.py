@@ -30,7 +30,7 @@ def plot_energy_v_time(infile, velocity=True,magnetic=False, decades=5, pdf=None
     ke_labels = []
     ke_codes = []
     ke_titles = []
-
+    
     tlabels = ['Total KE', 'Axisymmetric KE', 'Non-Axisymmetric KE']
     tqcodes = [401, 405, 409]
     
@@ -49,24 +49,44 @@ def plot_energy_v_time(infile, velocity=True,magnetic=False, decades=5, pdf=None
         ke_codes.append(mqcodes)
         ke_titles.append('Mean Kinetic Energy Density')
    
-        flabels = ['Fluctuating KE', 'Fluct Radial KE', r'Fluct $\theta$ KE', r'Flut $\phi$ KE']
+        flabels = ['Fluctuating KE', 'Fluctuating Radial KE', r'Fluctuating $\theta$ KE', r'Fluctuating $\phi$ KE']
         fqcodes = [409, 410, 411, 412]
         ke_labels.append(flabels)
         ke_codes.append(fqcodes)
         ke_titles.append('Fluctuating Kinetic Energy Density')
-        
-    magnetic = False
-   
-   
-    labels2 = ['Total ME', 'Axisymmetric ME', 'Non-Axisymmetric ME']
-    qcodes2 = [1101,1105, 1109]
 
     labels.append(ke_labels)
     qcodes.append(ke_codes)
     ptitles.append(ke_titles)
+
+   
     if (magnetic):
-        labels.append(labels2)
-        qcodes.append(qcodes2)
+        me_labels = []
+        me_codes  = []
+        me_titles = []
+        
+        me_labels.append(['Total ME', 'Axisymmetric ME', 'Non-Axisymmetric ME'])
+        me_codes.append([1101,1105, 1109])
+        me_titles.append('Magnetic Energy Density')
+
+        if (plot_breakdown):
+            mlabels = ['Mean ME', 'Mean Radial ME', r'Mean $\theta$ ME', r'Mean $\phi$ ME']
+            mqcodes = [1105, 1106, 1107, 1108]
+            me_labels.append(mlabels)
+            me_codes.append(mqcodes)
+            me_titles.append('Mean Magnetic Energy Density')
+       
+            flabels = ['Fluctuating ME', 'Fluctuating Radial ME', r'Fluctuating $\theta$ ME', r'Fluctuating $\phi$ ME']
+            fqcodes = [1109, 1110, 1111, 1112]
+            me_labels.append(flabels)
+            me_codes.append(fqcodes)
+            me_titles.append('Fluctuating Magnetic Energy Density')    
+
+        labels.append(me_labels)
+        qcodes.append(me_codes)
+        ptitles.append(me_titles)        
+
+
         
     if (velocity):
         for i in range(3):
