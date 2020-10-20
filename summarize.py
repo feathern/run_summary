@@ -26,6 +26,7 @@ print(prefs.azavg_values)
 
 have_azavg = len(prefs.azavg_values) > 0
 have_gavg = len(prefs.globalavg_values) > 0
+have_shellavg = len(prefs.shellavg_values) > 0
 
 for i,indir in enumerate(indirs):
     input_dir= indir
@@ -50,11 +51,11 @@ for i,indir in enumerate(indirs):
     #print(atest.iters)
     #ofile ='satest.dat'
 
-    #safiles = build_file_list(0,9000000000,path=input_dir+'/Shell_Avgs')
-    #TimeAvg_ShellAverages(safiles,ofile, qcodes=shellavg_values, dt = 1e8,  nfiles = num_shellavg)
-    #atest = Shell_Avgs(ofile,path='./', time_avg = True)
-    #print(atest.time)
-    #print(atest.iters)
+    if (have_shellavg):
+        safiles = build_file_list(0,prefs.max_iter,path=input_dir+'/Shell_Avgs')
+        sa_ofile=snapdir+'/Shell_Avgs.dat'
+        TimeAvg_ShellAverages(safiles,sa_ofile, qcodes=prefs.shellavg_values, dt = 1e8,  nfiles = prefs.num_shellavg)
+        #atest = Shell_Avgs(ofile,path='./', time_avg = True)
 
         
     #ofile='sptest.dat'
