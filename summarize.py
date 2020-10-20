@@ -65,7 +65,7 @@ for i,indir in enumerate(indirs):
     #print(atest.iters)
     
     #Now, begin to plot it
-    titles = ['Energy v time']
+    titles = ['Kinetic Energy vs. Time']+prefs.magnetic*['Magnetic Energy vs. Time']
     with PdfPages(snapfile) as pdf:
 
         title_page(plt,titles, name = model_name, paper = prefs.paper_name)

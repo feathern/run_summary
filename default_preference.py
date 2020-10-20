@@ -2,7 +2,7 @@
 # Copy this file as needed
 # Each variable defined below must be defined
 
-paper_name='Hindman, B.W. et al., 2020, ApJ, 898, 120\nMorphological Classification of the Convective Regimes in Rotating Stars'
+paper_name='Hindman, B.W., et al., 2020, ApJ, 898, 120\nMorphological Classification of the Convective Regimes in Rotating Stars'
 
 magnetic = True
 
