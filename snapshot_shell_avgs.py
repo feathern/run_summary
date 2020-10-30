@@ -1,30 +1,33 @@
-def plot_energy_v_time(infile, pdf, magnetic=False, min_decades=2, plot_breakdown=True, tunits = None, eunits = None, me_denom=''):
+def plot_energy_v_radius(infile, pdf, magnetic=False, min_decades=2, max_decades=5, plot_breakdown=True, lunits = None, eunits = None, 
+                          tunits = None, me_denom=''):
     """
     
-    plot_energy_v_time:  Plots kinetic and magnetic energy densities vs. time from a G_Avgs file.
+    plot_energy_v_radius:  Plots kinetic and magnetic energy densities vs. radius from a time-averaged Shell_Avgs file.
                          Plots are saved to a pdf.
                          
     Input Parameters:
-            infile         -- the name of the G_Avgs file to process.
+            infile         -- the name of the Shell_Avgs file to process.
             pdf            -- the PdfPages object corresponding to the pdf file to plot to
             magnetic       -- (optional; default = False) Set to True to plot magnetic energy densities as well
             min_decades    -- (optional; default = 2) minimum number of decades along the y-axis.
+            max_decades    -- (optional; default = 4) maximum number of decades along the y-axis
             plot_breakdown -- (optional; default = True) If true, fluctuating and mean energy densities, 
                               along with their r, theta, phi breakdown are plotted.  If False, only total
-                              energy density, flucutating energy density, and mean energy density are shown
+                              energy density, fluctuating energy density, and mean energy density are shown
                               (single plot, no r,theta,phi breakdown).
-            tunits         -- (optional; default = None) time units for dimensional runs (e.g., seconds)
+            lunits         -- (optional; default = None) length units for dimensional runs (e.g., cm)
+            tunits         -- (optional; default = None) time units for dimensional runs (e.g., s)            
             eunits         -- (optional; default = None) energy density units for dimensional runs      
                    
     """
     from matplotlib import pyplot as plt
     import numpy as np
     import numpy
-    from rayleigh_diagnostics import G_Avgs
+    from rayleigh_diagnostics import Shell_Avgs
     from matplotlib import rcParams 
 
-    ga= G_Avgs(infile,path='')
-    time = ga.time
+    sa= Shell_Avgs(infile,path='',time_avg=True)
+    radius = sa.radius
 
     # Page size and margins
     pxsize = 8.5
@@ -90,12 +93,11 @@ def plot_energy_v_time(infile, pdf, magnetic=False, min_decades=2, plot_breakdow
         me_labels = []
         me_codes  = []
         me_titles = []
-        print('me_denom is:', me_denom)
 
         tlabels = [r'ME  = $\frac{1}{'+me_denom+r' V}\int_V\,\,\left|\mathbf{B}\right|^2dV$ ', 
            r'MME = $\frac{1}{'+me_denom+r' V}\int_V\,\,\left|\overline{\mathbf{B}}\right|^2dV$',
            r'FME = $\frac{1}{'+me_denom+r' V}\int_V\,\,\left|\mathbf{B}-\overline{\mathbf{B}}\right|^2dV$']
-        print('tlabels: ', tlabels)
+
         me_labels.append(tlabels)
         me_codes.append([1101,1105, 1109])
         me_titles.append('Magnetic Energy Density')
@@ -119,21 +121,34 @@ def plot_energy_v_time(infile, pdf, magnetic=False, min_decades=2, plot_breakdow
             me_labels.append(flabels)
             me_codes.append(fqcodes)
             me_titles.append('Fluctuating Magnetic Energy Density')    
-
+            
         labels.append(me_labels)
         qcodes.append(me_codes)
         ptitles.append(me_titles)        
 
 
     # X- and Y- Axis Labels
-    xlabel = r'Time'
-    if (tunits != None):
-        xlabel = xlabel+' ('+tunits+')'
+    xlabel = r'Radius'
+    if (lunits != None):
+        xlabel = xlabel+' ('+lunits+')'
     
     ylabel = r'Energy Density'
     if (eunits != None):
         ylabel = ylabel+' ('+eunits+')'
-    
+
+    if (tunits != None):
+        tstring = ' '+tunits
+    else:
+        tstring=''
+
+    #########################################################
+    # Create a message regarding temporal averaging
+    txt="Time-averaging information:\n\n"
+    txt=txt+"  first timestep: "+"{:,}".format(sa.iters[0])+'\n'
+    txt=txt+"  last timestep : "+"{:,}".format(sa.iters[1])+'\n\n'
+    txt=txt+"  start time    : "+"{:.4e}".format(sa.time[0])+tstring+'\n'
+    txt=txt+"  end time      : "+"{:.4e}".format(sa.time[1])+tstring+'\n\n'    
+    txt=txt+"  delta time    : "+"{:.4e}".format(sa.time[1]-sa.time[0])+tstring    
     
     ##################################################################################
     # Plotting
@@ -143,7 +158,8 @@ def plot_energy_v_time(infile, pdf, magnetic=False, min_decades=2, plot_breakdow
             if (k > 0):
                 newfig = False    
         if (newfig):
-            fig = plt.figure(figsize=(pxsize,pysize))       
+            fig = plt.figure(figsize=(pxsize,pysize))     
+            time_info_shown = False  
 
         nplot = len(qtemp)
         if (nplot < 2):   # In the case of a single plot, prevent it from filling the full vertical page height.
@@ -166,9 +182,9 @@ def plot_energy_v_time(infile, pdf, magnetic=False, min_decades=2, plot_breakdow
             minvals = []
             rcParams.update({'font.size': 10})     
             for i in range(len(qcode)):
-                ax1.plot(time, ga.vals[:,ga.lut[qcode[i]]], label=labels[k][j][i])
-                maxvals.append(numpy.max(ga.vals[:,ga.lut[qcode[i]]]))   
-                minvals.append(numpy.min(ga.vals[:,ga.lut[qcode[i]]]))
+                ax1.plot(radius, sa.vals[:,0,sa.lut[qcode[i]],0], label=labels[k][j][i])
+                maxvals.append(numpy.max(sa.vals[:,0,sa.lut[qcode[i]],0]))   
+                minvals.append(numpy.min(sa.vals[:,0,sa.lut[qcode[i]],0]))
                        
             ax1.set_yscale('log')
 
@@ -188,10 +204,17 @@ def plot_energy_v_time(infile, pdf, magnetic=False, min_decades=2, plot_breakdow
             else:
                 ylogbot = ybottemp
 
+            ydiff = ylogtop-ylogbot
+            if (ydiff > max_decades):
+                ylogbot = ylogtop-max_decades
+
             ax1.set_ylim([10**ylogbot,10**ylogtop])
 
             ax1.legend(bbox_to_anchor=(1,1.05),loc='upper left', prop={'size' : 12})
-
+            if (j == 0 and not time_info_shown):
+                fig.text(xmar+xsize*1.05, 1-ymar-ysize*1.05, txt)
+                time_info_shown = True
+                
         # Finally, if we're not plotting the full energy breakdown, but we are plotting 
         # magnetism, we want to save this plot to the same page.
         savepage = True
@@ -202,5 +225,100 @@ def plot_energy_v_time(infile, pdf, magnetic=False, min_decades=2, plot_breakdow
             pdf.savefig()
             plt.close()
 
+def plot_energy_flux(infile, pdf, magnetic=False, funits=None):
+    """
+    
+    plot_energy_v_radius:  Plots kinetic and magnetic energy densities vs. radius from a time-averaged Shell_Avgs file.
+                         Plots are saved to a pdf.
+                         
+    Input Parameters:
+            infile         -- the name of the Shell_Avgs file to process.
+            pdf            -- the PdfPages object corresponding to the pdf file to plot to
+            magnetic       -- (optional; default = False) Set to True to plot magnetic energy densities as well
+            min_decades    -- (optional; default = 2) minimum number of decades along the y-axis.
+            max_decades    -- (optional; default = 4) maximum number of decades along the y-axis
+            plot_breakdown -- (optional; default = True) If true, fluctuating and mean energy densities, 
+                              along with their r, theta, phi breakdown are plotted.  If False, only total
+                              energy density, fluctuating energy density, and mean energy density are shown
+                              (single plot, no r,theta,phi breakdown).
+            lunits         -- (optional; default = None) length units for dimensional runs (e.g., cm)
+            tunits         -- (optional; default = None) time units for dimensional runs (e.g., s)            
+            eunits         -- (optional; default = None) energy density units for dimensional runs      
+                   
+    """
+    from matplotlib import pyplot as plt
+    import numpy as np
+    import numpy
+    from rayleigh_diagnostics import Shell_Avgs
+    from matplotlib import rcParams 
+
+    sa= Shell_Avgs(infile,path='',time_avg=True)
+    radius = sa.radius
+
+    # Page size and margins
+    pxsize = 8.5
+    pysize = 11.0
+    ymar = 1.0/pysize
+    xmar = 1.0/pxsize
+    
+    yspace = ymar*0.8  # vertical spacing between plots
+    xsize = (1.0-2*xmar)*0.65 # length of plots
+    ysize = 0.4
+    yone = 1-ymar-ysize
+    
+    
+    xlabel = 'Radius'
+    ylabel = r'Flux $\times\,4\pi r^2$'
+    ptitle = 'Energy Flux Balance'
+
+    #########################################################
+    # Create a message regarding temporal averaging
+    tstring=''
+    txt="Time-averaging information:\n\n"
+    txt=txt+"  first timestep: "+"{:,}".format(sa.iters[0])+'\n'
+    txt=txt+"  last timestep : "+"{:,}".format(sa.iters[1])+'\n\n'
+    txt=txt+"  start time    : "+"{:.4e}".format(sa.time[0])+tstring+'\n'
+    txt=txt+"  end time      : "+"{:.4e}".format(sa.time[1])+tstring+'\n\n'    
+    txt=txt+"  delta time    : "+"{:.4e}".format(sa.time[1]-sa.time[0])+tstring    
+
+    
+    qcodes = [1433, 1455, 1470, 1923, 1935]
+    fig = plt.figure(figsize=(pxsize,pysize))     
+    ax1 = fig.add_axes((xmar, yone, xsize,ysize))
+
+    ax1.set_xlabel(xlabel)
+    ax1.set_ylabel(ylabel)
+    ax1.set_title(ptitle)
+            
+    maxvals = []
+    minvals = []
+    rcParams.update({'font.size': 10})     
+    fpr = 4*numpy.pi*radius**2
+    tot = numpy.zeros(sa.nr,dtype='float64')
+    for i in range(len(qcodes)):
+        val = sa.vals[:,0,sa.lut[qcodes[i]],0]*fpr
+        tot+= val
+        ax1.plot(radius, val, label=str(i))
+        maxvals.append(numpy.max(val))   
+        minvals.append(numpy.min(sa.vals[:,0,sa.lut[qcodes[i]],0]))
+    ax1.plot(radius,tot,label='Total')
+
+    # Attemp to do some sensible scaling on the y-axis
+    ymax = numpy.max(maxvals)
+    ymin = numpy.min(minvals)
+
+    ytop = 1.1*ymax
+    ybottom = -.1*ymax
+    if (ymin < ybottom):
+        ybottom = ymin
+
+    ax1.set_ylim([ybottom, ytop])
+
+    ax1.legend(bbox_to_anchor=(1,1.05),loc='upper left', prop={'size' : 12})
+
+    fig.text(xmar+xsize*1.05, 1-ymar-ysize*1.05, txt)
+
+    pdf.savefig()
+    plt.close()
 
 
