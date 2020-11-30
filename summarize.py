@@ -27,8 +27,27 @@ outdirs = ['/home/feathern/runs/snapshot/model_69_2']
 
 twait = 1000 # max time to wait on any command (seconds)
 
+infile='input_directories.txt'
+ofile ='output_directories.txt'
 
 
+
+file1 = open(infile, 'r') 
+indirs = file1.readlines() 
+file1.close()
+
+file1 = open(ofile, 'r') 
+outdirs = file1.readlines() 
+file1.close()
+
+for i,v in enumerate(indirs):
+    indirs[i] = indirs[i].rstrip('\n')
+    outdirs[i] = outdirs[i].rstrip('\n')
+
+print(indirs)
+print(outdirs)
+
+#exit()
 
 process_G_Avgs        = prefs.process_G_Avgs
 process_Shell_Avgs    = prefs.process_Shell_Avgs 
@@ -206,6 +225,7 @@ for i,indir in enumerate(indirs):
             
     #Now, make the plot if desired
     if (plot_data):
+        print('     Generating snapshot plot...')
         with PdfPages(snapfile) as pdf:
 
             title_page(plt,titles, name = model_name, paper = prefs.paper_name)
