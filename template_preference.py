@@ -4,9 +4,9 @@
 # A string containing the name of the paper.  Multiple lines are fine.
 paper_name='Hindman, B.W., et al., 2020, ApJ, 898, 120\nMorphological Classification of the Convective Regimes in Rotating Stars'
 
-magnetic = True   # Set to true for magnetic runs (if magnetic quantities output).
+magnetic = False   # Set to true for magnetic runs if you wish to plot magnetic quantities (if output).
 
-#######################################################################
+##############################################################################################
 # Decide which data types we would like to post-processes and save.
 process_G_Avgs        = True # Concatenate G_Avgs (or not)
 process_Shell_Avgs    = True # Time-Average Shell_Avgs (or not)
@@ -15,16 +15,16 @@ process_Shell_Spectra = True # Time-Average Shell_Spectra (or not)
 process_Shell_Slices  = True # Backup last Shell_Slices file (or not)
 process_Checkpoints   = True # Backup last Checkpoint and main_input (or not)
 
-####################################################################
+##############################################################################################
 # We can optionally plot each of the processed files,
 # creating a multi-page pdf in the process.
-plot_G_Avgs        = True 
+plot_G_Avgs        = False 
 plot_Shell_Avgs    = True 
 plot_AZ_Avgs       = True # Not yet implemented
 plot_Shell_Spectra = True 
 plot_Shell_Slices  = True 
 
-#######################################################################
+##############################################################################################
 #  Decide how much data to process.
 max_iter = 900000000    # 900 million;  maximum iteration number to search for. 
                         # This is unused for checkpoints (last checkpoint always taken).

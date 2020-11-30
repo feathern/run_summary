@@ -17,7 +17,7 @@ import matplotlib
 
 import subprocess as sp
 
-pfile = 'snapshot_preference'
+pfile = 'template_preference'
 
 prefs = importlib.import_module(pfile)
 
@@ -26,6 +26,9 @@ indirs = ['/home/feathern/runs/model_69_2']
 outdirs = ['/home/feathern/runs/snapshot/model_69_2']
 
 twait = 1000 # max time to wait on any command (seconds)
+
+
+
 
 process_G_Avgs        = prefs.process_G_Avgs
 process_Shell_Avgs    = prefs.process_Shell_Avgs 
@@ -41,10 +44,11 @@ plot_Shell_Spectra = prefs.plot_Shell_Spectra
 plot_Shell_Slices  = prefs.plot_Shell_Slices
 
 
-plot_data = plot_G_Avgs or plot_Shell_Avgs or plot_AZ_Avgs or plot_Shell_Spectra or plot_Shell_Slices
 
-process_data = True
-plot_data = False
+
+plot_data = plot_G_Avgs or plot_Shell_Avgs or plot_AZ_Avgs or plot_Shell_Spectra or plot_Shell_Slices
+process_data = process_G_Avgs or process_Shell_Avgs or process_AZ_Avgs or process_Shell_Spectra or process_Shell_Slices
+
 
 titles=[]
 for i,indir in enumerate(indirs):
@@ -80,8 +84,9 @@ for i,indir in enumerate(indirs):
             if (len(gafiles) > 0):
                 have_G_Avgs = True
                 ga_ofile=snapdir+'/G_Avgs.dat'
-                Compile_GlobalAverages(gafiles,ga_ofile, nfiles=prefs.num_gavg, qcodes = prefs.globalavg_values) 
-                titles += ['Kinetic Energy vs. Time']+prefs.magnetic*['Magnetic Energy vs. Time']
+                Compile_GlobalAverages(gafiles,ga_ofile, nfiles=prefs.num_G_Avgs, qcodes = prefs.globalavg_values) 
+                if (plot_G_Avgs):
+                    titles += ['Kinetic Energy vs. Time']+prefs.magnetic*['Magnetic Energy vs. Time']
             else:
                 have_G_Avgs = False
                 
@@ -99,8 +104,9 @@ for i,indir in enumerate(indirs):
             if (len(safiles) > 0):     
                 have_Shell_Avgs = True
                 sa_ofile=snapdir+'/Shell_Avgs.dat'
-                TimeAvg_ShellAverages(safiles,sa_ofile, qcodes=prefs.shellavg_values, dt = 1e8,  nfiles = prefs.num_shellavg)
-                titles += ['Kinetic Energy vs. Radius']+prefs.magnetic*['Magnetic Energy vs. Radius']    
+                TimeAvg_ShellAverages(safiles,sa_ofile, qcodes=prefs.shellavg_values, dt = 1e8,  nfiles = prefs.num_Shell_Avgs)
+                if (plot_Shell_Avgs):
+                    titles += ['Kinetic Energy vs. Radius']+prefs.magnetic*['Magnetic Energy vs. Radius']    
             else:
                 have_Shell_Avgs = False
 
@@ -116,8 +122,9 @@ for i,indir in enumerate(indirs):
             if (len(azfiles) > 0):
                 have_AZ_Avgs = True
                 az_ofile=snapdir+'/AZ_Avgs.dat'
-                titles += ['Kinetic Energy vs. Radius']+prefs.magnetic*['Magnetic Energy vs. Radius']        
-                TimeAvg_AZAverages(azfiles,az_ofile, qcodes=prefs.azavg_values, dt = 1e8,  nfiles = prefs.num_shellavg)
+                TimeAvg_AZAverages(azfiles,az_ofile, qcodes=prefs.azavg_values, dt = 1e8,  nfiles = prefs.num_AZ_Avgs)                
+                if (plot_AZ_Avgs):
+                    titles += ['Kinetic Energy vs. Radius']+prefs.magnetic*['Magnetic Energy vs. Radius']        
             else:
                 have_AZ_Avgs = False
                 
@@ -132,8 +139,9 @@ for i,indir in enumerate(indirs):
             if (len(spfiles) > 0):
                 have_Shell_Spectra = True
                 sp_ofile=snapdir+'/Shell_Spectra.dat'
-                titles += ['Kinetic Energy Spectrum']+prefs.magnetic*['Magnetic Energy Spectrum']
-                TimeAvg_ShellSpectra(spfiles,sp_ofile, qcodes=prefs.shell_spectra_values, nfiles = prefs.num_shellspectra)
+                TimeAvg_ShellSpectra(spfiles,sp_ofile, qcodes=prefs.shell_spectra_values, nfiles = prefs.num_Shell_Spectra)
+                if (plot_Shell_Spectra):
+                    titles += ['Kinetic Energy Spectrum']+prefs.magnetic*['Magnetic Energy Spectrum']               
             else:
                 have_Shell_Spectra = False
                 
@@ -152,44 +160,48 @@ for i,indir in enumerate(indirs):
                 creation_cmd='cp '+last_shell+' '+shell_file
                 s=sp.Popen(creation_cmd,shell=True)
                 s.wait(timeout=twait)
-                titles += ['Shell_Slice Snapshot']
+                if (plot_Shell_Slices):
+                    titles += ['Shell_Slice Snapshot']
             else:
                 have_Shell_Slices = False
                 
         if (process_Checkpoints):
-            #Note:  need to add error checking into here.
+            #Note:  need to add bette error checking into here.
             print('           Saving last checkpoint...')
-            checkdir= output_dir+'/Checkpoints'
-            os.makedirs(checkdir, exist_ok=True)            
-            check_file = input_dir+'/Checkpoints/last_checkpoint'
-            cfile = open(check_file,'r')
-            eof = False
-            clines=[]
-            while (not eof):                            # Keep reading forever
-                line = cfile.readline()
-                ilen = len(line)
-                if (ilen == 0):
-                    eof = True
+            try:
+                checkdir= output_dir+'/Checkpoints'
+                os.makedirs(checkdir, exist_ok=True)            
+                check_file = input_dir+'/Checkpoints/last_checkpoint'
+                cfile = open(check_file,'r')
+                eof = False
+                clines=[]
+                while (not eof):                            # Keep reading forever
+                    line = cfile.readline()
+                    ilen = len(line)
+                    if (ilen == 0):
+                        eof = True
+                    else:
+                        clines.append(line)
+                if (len(clines) == 1):
+                    check_pref = input_dir+'/Checkpoints/'+clines[0].split()[0]
+                    check_pref2 = clines[0].split()[0]
                 else:
-                    clines.append(line)
-            if (len(clines) == 1):
-                check_pref = input_dir+'/Checkpoints/'+clines[0].split()[0]
-                check_pref2 = clines[0].split()[0]
-            else:
-                check_pref = input_dir+'/Checkpoints/quicksave_'+clines[1].split()[0]
-                check_pref2 = 'quicksave_'+clines[1].split()[0]
-            print('              ...Saving '+check_pref2)
-            copycmd = 'cp '+check_file+' '+checkdir+'/.'
-            s=sp.Popen(copycmd,shell=True)
-            s.wait(timeout=twait)    
-            
-            copycmd = 'cp -r '+check_pref+' '+checkdir+'/.'
-            s=sp.Popen(copycmd,shell=True)
-            s.wait(timeout=twait)               
+                    check_pref = input_dir+'/Checkpoints/quicksave_'+clines[1].split()[0]
+                    check_pref2 = 'quicksave_'+clines[1].split()[0]
+                print('              ...Saving '+check_pref2)
+                copycmd = 'cp '+check_file+' '+checkdir+'/.'
+                s=sp.Popen(copycmd,shell=True)
+                s.wait(timeout=twait)    
+                
+                copycmd = 'cp -r '+check_pref+' '+checkdir+'/.'
+                s=sp.Popen(copycmd,shell=True)
+                s.wait(timeout=twait)               
 
-            copycmd = 'cp '+input_dir+'/main_input '+output_dir+'/.'
-            s=sp.Popen(copycmd,shell=True)
-            s.wait(timeout=twait)         
+                copycmd = 'cp '+input_dir+'/main_input '+output_dir+'/.'
+                s=sp.Popen(copycmd,shell=True)
+                s.wait(timeout=twait)         
+            except:
+                print('                 ... Error... no checkpoint backed up.')
 
             
     #Now, make the plot if desired
@@ -212,6 +224,6 @@ for i,indir in enumerate(indirs):
                 plot_spectra(sp_ofile,velocity=True,magnetic=prefs.magnetic,thermal=False, decades=4, pdf = pdf)
                 
             if (have_Shell_Slices and plot_Shell_Slices):
-                plot_shell_slice(new_file,pdf, magnetic=prefs.magnetic)
+                plot_shell_slice(shell_file,pdf, magnetic=prefs.magnetic)
 
 

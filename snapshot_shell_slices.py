@@ -101,7 +101,6 @@ def plot_shell_slice(shell_file,pdf,magnetic=False):
 
             
                 data[:,:] = s1.vals[:,:,lv,s1.lut[qcode],ts]
-                print('Plotting: ', name)   
                 if (subtract_mean[j]):
                     data = data-numpy.mean(data)
 
