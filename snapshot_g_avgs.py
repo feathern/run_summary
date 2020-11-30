@@ -90,12 +90,12 @@ def plot_energy_v_time(infile, pdf, magnetic=False, min_decades=2, plot_breakdow
         me_labels = []
         me_codes  = []
         me_titles = []
-        print('me_denom is:', me_denom)
+        
 
         tlabels = [r'ME  = $\frac{1}{'+me_denom+r' V}\int_V\,\,\left|\mathbf{B}\right|^2dV$ ', 
            r'MME = $\frac{1}{'+me_denom+r' V}\int_V\,\,\left|\overline{\mathbf{B}}\right|^2dV$',
            r'FME = $\frac{1}{'+me_denom+r' V}\int_V\,\,\left|\mathbf{B}-\overline{\mathbf{B}}\right|^2dV$']
-        print('tlabels: ', tlabels)
+
         me_labels.append(tlabels)
         me_codes.append([1101,1105, 1109])
         me_titles.append('Magnetic Energy Density')

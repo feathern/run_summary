@@ -26,11 +26,12 @@ plot_Shell_Slices  = True
 
 #######################################################################
 #  Decide how much data to process.
-max_iter = 900000000  # 900 million;  maximum iteration number to search for. Unused for checkpoints (last checkpoint always taken)
-num_shellavg = 15     # Number of Shell_Avgs files to time-average over.
-num_azavg = 15        # Number of AZ_Avgs files to time-average over.
-num_shellspectra = 15 # Number of Shell_Spectra files to time-average oer
-num_gavg = -1         # Number of G_Avgs files to concatenate (-1 indicates 'use all available files')
+max_iter = 900000000    # 900 million;  maximum iteration number to search for. 
+                        # This is unused for checkpoints (last checkpoint always taken).
+num_Shell_Avgs    = 15  # Number of Shell_Avgs files to time-average over.
+num_AZ_Avgs       = 15  # Number of AZ_Avgs files to time-average over.
+num_Shell_Spectra = 15  # Number of Shell_Spectra files to time-average oer
+num_G_Avgs        = -1  # Number of G_Avgs files to concatenate (-1 indicates 'use all available files')
 
 
 

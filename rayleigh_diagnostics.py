@@ -1325,7 +1325,6 @@ class Shell_Spectra:
         self.lut = get_lut(self.qv)
         
         if (time_avg):
-            print('grabbing time')
             self.time[1] = swapread(fd,dtype='float64',count=1,swap=bs)
             self.iters[1] = swapread(fd,dtype='int32',count=1,swap=bs)            
         fd.close()
@@ -1602,7 +1601,6 @@ def Compile_GlobalAverages(file_list,ofile, qcodes=[],nfiles=-1):
     icount[0] = 0
     for i in range(ffirst, num_files):
         the_file = file_list[i]
-        print(the_file)
         a = G_Avgs(the_file,path='')
         nrec = a.niter
         tmp[:] = 0
@@ -1675,7 +1673,7 @@ def TimeAvg_AZAverages(file_list,ofile,qcodes=[],dt=-1,nfiles=-1):
     for i in range(num_files-1,flast,-1):
         the_file = file_list[i]
         b = AZ_Avgs(the_file,path='')
-        print(the_file)
+
         nrec = b.niter
         btheta = b.ntheta
         br = b.nr
@@ -1703,7 +1701,6 @@ def TimeAvg_AZAverages(file_list,ofile,qcodes=[],dt=-1,nfiles=-1):
     #print(file_list[0])
     for q in range(nq):
         div = qcount[q]
-        print(div)
         if (div > 0):
             time_avg[:,:,q] = time_avg[:,:,q]/div
 
@@ -1729,8 +1726,7 @@ def TimeAvg_AZAverages(file_list,ofile,qcodes=[],dt=-1,nfiles=-1):
     tfinal.tofile(fd)
     ifinal.tofile(fd)
     fd.close()
-    print(i0,ifinal)
-    print(t0,tfinal, tfinal-t0)
+
 
 def TimeAvg_ShellAverages(file_list,ofile,qcodes=[],dt=-1,nfiles=-1):
     #   nfiles -- optional -- number of files to read relative to last file 
@@ -1780,7 +1776,6 @@ def TimeAvg_ShellAverages(file_list,ofile,qcodes=[],dt=-1,nfiles=-1):
     for i in range(num_files-1,flast,-1):
         the_file = file_list[i]
         b = Shell_Avgs(the_file,path='')
-        print(the_file)
         nrec = b.niter
         br = b.nr
         if (br == nr):
@@ -1806,7 +1801,6 @@ def TimeAvg_ShellAverages(file_list,ofile,qcodes=[],dt=-1,nfiles=-1):
 
     for q in range(nq):
         div = qcount[q]
-        print(div)
         if (div > 0):
             if (a.version == 1):
                 time_avg[:,q] = time_avg[:,q]/div
@@ -1887,7 +1881,6 @@ def TimeAvg_ShellSpectra(file_list,ofile,qcodes=[],dt=-1,nfiles=-1):
     for i in range(num_files-1,flast,-1):
         the_file = file_list[i]
         b = Shell_Spectra(the_file,path='')
-        print(the_file)
         nrec = b.niter
         br = b.nr
         bell = b.nell
@@ -1913,11 +1906,11 @@ def TimeAvg_ShellSpectra(file_list,ofile,qcodes=[],dt=-1,nfiles=-1):
                     i0[0] = b.iters[j]
 
     # Average each q-code independently (in case outputs changed mid run)
+    # Take the sqrt so that scaling is consistent with Shell_Spectra output
     for q in range(nq):
         div = qcount[q]
-        print(div)
         if (div > 0):
-            time_avg[:,:,:,q] = time_avg[:,:,:,q]/div
+            time_avg[:,:,:,q] = numpy.sqrt(time_avg[:,:,:,q]/div)
             
 
               
@@ -1948,8 +1941,6 @@ def TimeAvg_ShellSpectra(file_list,ofile,qcodes=[],dt=-1,nfiles=-1):
     tfinal.tofile(fd)
     ifinal.tofile(fd)
     fd.close()
-    print('initials: ', t0, i0)
-    print('finals:   ', tfinal, ifinal)
 
 
 def integrate_dr(radius,f):

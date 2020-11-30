@@ -13,8 +13,8 @@ def plot_spectra(infile, velocity=True,magnetic=False,thermal=False, decades=10,
 
     spec = Shell_Spectra(infile,path='',time_avg=time_avg)
     if (rind == None):
-        rind = spec.nr//2+spec.nr%2
-        print(spec.nr, rind, spec.lpower.shape)
+        rind = 0 #spec.nr//2+spec.nr%2
+        #print(spec.nr, rind, spec.lpower.shape)
     nell = spec.nell
     ellp1=np.arange(1,nell+1,dtype='int32')   
     power = numpy.zeros((nell,3),dtype='float64')
@@ -108,7 +108,7 @@ def plot_spectra(infile, velocity=True,magnetic=False,thermal=False, decades=10,
         ymax = numpy.max(power)
         ylogtop = int(numpy.log10(ymax))+1
         ylogbot = ylogtop-decades
-        print(ymax,ylogtop,ylogbot)
+        #print(ymax,ylogtop,ylogbot)
         ax1.set_ylim([10**ylogbot,10**ylogtop])
 
         rcParams.update({'font.size': 16})        
