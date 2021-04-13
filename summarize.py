@@ -17,7 +17,7 @@ import matplotlib
 
 import subprocess as sp
 
-pfile = 'template_preference'
+pfile = 'preference'
 
 prefs = importlib.import_module(pfile)
 
