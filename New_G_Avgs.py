@@ -13,7 +13,7 @@ def get_lut(quantities):
 
 
 class G_Avgs:
-    """Rayleigh GlobalAverage Structure
+    """Rayleigh GlobalAverage Data Structure
     ----------------------------------
     self.niter                  : number of time steps
     self.nq                     : number of diagnostic quantities output
@@ -23,11 +23,41 @@ class G_Avgs:
     self.time[0:niter-1]        : The simulation time corresponding to each time step
     self.version                : The version code for this particular output (internal use)
     self.lut                    : Lookup table for the different diagnostics output
+
+    Initialization Examples:
+        (1):  Read in a single G_Avgs file
+              a = G_Avgs('00000001',path='./G_Avgs/')
+              
+        (2):  Concatenate time-series data from multiple G_Avgs files:
+              a = Shell_Spectra(['00000001','00000002'])
+
+        (3):  Concatenate time-series data from multiple G_Avgs files + save data to new G_Avgs file:
+              a = Shell_Spectra(['00000001','00000002'],ofile='my_save_file.dat')
+              
+        (4):  Concatenate time-series data from multiple G_Avgs files.
+              Extract only quantity codes 401 and 402:
+              a = Shell_Spectra(['00000001','00000002'], qcodes = [401,402])
+
+    Additional Notes:
+        For concatenated data:
+        
+            - Output files are written in identical format to a standard G_Avgs file. They may be
+              read in using the same syntax described above.
+              
     """
 
     def __init__(self,filename='none',path='G_Avgs/', ofile='none', qcodes=[]):
-        """filename  : The reference state file to read.
-           path      : The directory where the file is located (if full path not in filename)
+
+        """
+           Initializer for the G_Avgs class.
+           
+           Input parameters:
+               filename  : (a) {string} The G_Avgs file to read.
+                         : (b) {list of strings} The G_Avgs files whose time-series
+                               data you wish to concatenate.
+               path      : The directory where the file is located (if full path not in filename)
+               qcodes    : {optional; list of ints} Quantity codes you wish to extract (if not all)
+               ofile     : {optional; string} Filename to save time-averaged data to, if desired.
         """
         # Check to see if we are compiling data from multiple files
         # This is true if (a) ofile is set or (b) filename is a list of files, rather than a single string
@@ -62,7 +92,20 @@ class G_Avgs:
 
         if (ofile != 'none'):
             self.write(ofile)
+            
+            
     def write(self,outfile):
+        """
+            Writing routine for G_Avgs class.
+            
+            Input parameters:
+               outfile  : (a) {string} The G_Avgs file to be written.
+
+            Calling Syntax:
+                my_gavgs.write("my_file.dat")
+                (writes all data contained in my_gavgs to my_file.dat, in standard G_Avgs format)
+
+        """
         one_rec = np.dtype([('vals', np.float64, [self.nq,]), ('times',np.float64), ('iters', np.int32)  ])
         fstruct = np.dtype([ ('fdims', np.int32,4), ('qvals', np.int32,(self.nq)), ('fdata', one_rec, [self.niter,])  ])
         
@@ -83,6 +126,14 @@ class G_Avgs:
         
 
     def compile_multiple_files(self,filelist,qcodes=[],path=''):
+        """
+           Time-series concatenation routine for the G_Avgs class.
+           
+           Input parameters:
+               filelist  : {list of strings} The G_Avgs files to be concatenated.
+               path      : The directory where the files are located (if full path not in filename)
+               qcodes    : {optional; list of ints} Quantity codes you wish to extract (if not all)
+        """
         nfiles = len(filelist)
         new_nrec = self.niter*nfiles
         self.niter = new_nrec
@@ -113,10 +164,19 @@ class G_Avgs:
         self.time = self.time[0:self.niter]
         self.iters = self.iters[0:self.niter]
         self.vals = self.vals[0:self.niter,:]
-
         
         
     def read_data(self,qcodes = []):
+        """
+           Data-reading routine for the G_Avgs class.
+           
+           Input parameters:
+               qcodes    : {optional; list of ints} Quantity codes you wish to extract (if not all)
+           
+           Notes:
+                - This routine does not read header information.  Read_dimensions must be called first
+                  so that dimentions and the file descriptor are initialized. 
+        """
     
         self.qv    = np.zeros(self.nq             ,dtype='int32')
         self.vals  = np.zeros((self.niter,self.nq),dtype='float64')
@@ -155,9 +215,24 @@ class G_Avgs:
                 if (qcheck < maxq):
                     self.vals[:,q] = fdata['fdata']['vals'][0,:,qcheck]
             self.lut = get_lut(self.qv)  # Rebuild the lookup table since qv has changed
+
             
     def read_dimensions(self,the_file,closefile=False):
-        "Reads the quantity-code count, niter, version, and Endian information"
+        """
+        
+            Header-reading routine for the G_Avgs class.
+            
+            This routine initialized the file descriptor and reads the dimensions 
+            and Endian information of a G_Avgs file only. It does not read the G_Avgs data itself.
+
+           
+            Input parameters:
+               the_file    : {string} G_Avgs file whose header is to be read.
+               closefile   : (Boolean; optional; default=False) Set to True to close the file 
+                             after reading the header information. 
+                   
+
+        """
         self.fd = open(the_file,'rb')        
         specs = np.fromfile(self.fd,dtype='int32',count=4)
         bcheck = specs[0]       # If not 314, we need to swap the bytes
@@ -172,15 +247,3 @@ class G_Avgs:
         if (closefile):
             self.fd.close()
    
-        
-#dt = np.dtype([('time', [('min', np.int64), ('sec', np.int64)]),
-#
-#               ('temp', float)])
-#
-#x = np.zeros((1,), dtype=dt)
-#
-#x['time']['min'] = 10; x['temp'] = 98.25
-#
-#x
-#array([((10, 0), 98.25)],
-#      dtype=[('time', [('min', '<i8'), ('sec', '<i8')]), ('temp', '<f8')])
