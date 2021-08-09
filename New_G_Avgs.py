@@ -93,11 +93,27 @@ class G_Avgs:
         k = 0
         for i in range(nfiles):
             a = G_Avgs(filelist[i],qcodes=qcodes,path=path)
+
+            #If the iteration count isn't constant throughout a run,
+            #we may need to resize the arrays
+            if (k+a.niter > self.niter):
+                self.niter = k+a.niter
+                self.vals.resize((self.niter,self.nq))
+                self.time.resize((self.niter))
+                self.iters.resize( (self.niter))
+
             self.time[k:k+a.niter]   = a.time[:]
             self.iters[k:k+a.niter]  = a.iters[:]
             self.vals[k:k+a.niter,:] = a.vals[:]
             k+=a.niter
-        
+            
+        # Trim off any excess zeros 
+        # (in case last final was incomplete)
+        self.niter = k
+        self.time = self.time[0:self.niter]
+        self.iters = self.iters[0:self.niter]
+        self.vals = self.vals[0:self.niter,:]
+
         
         
     def read_data(self,qcodes = []):
