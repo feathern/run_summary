@@ -190,42 +190,73 @@ class Shell_Avgs:
         """
     
         self.qv    = np.zeros(self.nq             ,dtype='int32')
-        self.vals  = np.zeros((self.niter,self.nq),dtype='float64')
+        self.vals  = np.zeros((self.nr, 4, self.nq, self.niter),dtype='float64')
         self.iters = np.zeros(self.niter          ,dtype='int32')
         self.time  = np.zeros(self.niter          ,dtype='float64')
+        self.radius = np.zeros(self.nr, dtype='float64')
 
-        
-        one_rec = np.dtype([('vals', np.float64, [self.nq,]), ('times',np.float64), ('iters', np.int32)  ])
-        fstruct = np.dtype([ ('qvals', np.int32,(self.nq)), ('fdata', one_rec, [self.niter,])  ])
+        # Set up the record structure
+        if (self.version < 6):
+
+            if (self.version ==1):
+                one_rec = np.dtype([('vals', np.float64, [self.nq,self.nr]), ('times',np.float64), ('iters', np.int32)  ])
+            else:
+                one_rec = np.dtype([('vals', np.float64, [self.nq,4,self.nr]), ('times',np.float64), ('iters', np.int32)  ])   
+            
+        else:
+            # Things are a little more complicated following the parallel I/O redo.
+            # Store all data values in a 1-D array and rerrange each record at the end
+            one_rec = np.dtype([('vals', np.float64, [self.nr*4*self.nq]), ('times',np.float64), ('iters', np.int32)  ])
+
+        fstruct = np.dtype([ ('qvals', np.int32,(self.nq)), ('radius',np.float64,(self.nr)), ('fdata', one_rec, [self.niter,])  ])
+
         
         if (self.byteswap):
                 fdata = np.fromfile(self.fd,dtype=fstruct,count=1).byteswap()
         else:
                 fdata = np.fromfile(self.fd,dtype=fstruct)
                 
+        self.fd.close()
+        
         self.time[:] = fdata['fdata']['times'][0,:]
         self.iters[:] = fdata['fdata']['iters'][0,:]
         self.qv[:] = fdata['qvals'][0,:]
-   
-        self.fd.close()
+        self.radius[:] = fdata['radius'][0,:]
+        
+        if (self.version >= 6):
+            for i in range(self.niter):
+                # have some work to do...
+                rind=0
+                kone = 0
+                nr_base = self.nr//self.npcol
+                nr_mod = self.nr % self.npcol
+                for j in range(self.npcol):
+                    nrout= nr_base
+                    if (j < nr_mod) :
+                        nrout=nrout+1
+                    ktwo = kone+nrout*4*self.nq
+                    tmp = np.reshape(fdata['fdata']['vals'][0,i,kone:ktwo], (nrout,4,self.nq), order = 'F'   )
+                    self.vals[rind:rind+nrout,:,:,i] = tmp[:,:,:]
+                    rind=rind+nrout            
+                    kone = ktwo
         
         self.lut = get_lut(self.qv)  # Lookup table
         
         ########################################################
         # We may want to extract a subset of the quantity codes
-        if (len(qcodes) == 0):
-            self.vals[:,:] = fdata['fdata']['vals'][0,:,:]
-        else:
-            nqfile = self.nq        # number of quantity codes in the file
-            qget = np.array(qcodes,dtype='int32')
-            self.qv = qget  # Don't update the lookup table yet
-            self.nq = len(self.qv)  # number of quantity codes we will extract
-            self.vals  = np.zeros((self.niter,self.nq),dtype='float64')
-            for q in range(self.nq):
-                qcheck = self.lut[qget[q]]
-                if (qcheck < maxq):
-                    self.vals[:,q] = fdata['fdata']['vals'][0,:,qcheck]
-            self.lut = get_lut(self.qv)  # Rebuild the lookup table since qv has changed
+        #if (len(qcodes) == 0):
+        #    self.vals[:,:] = fdata['fdata']['vals'][0,:,:]
+        #else:
+        #    nqfile = self.nq        # number of quantity codes in the file
+        #    qget = np.array(qcodes,dtype='int32')
+        #    self.qv = qget  # Don't update the lookup table yet
+        #    self.nq = len(self.qv)  # number of quantity codes we will extract
+        #    self.vals  = np.zeros((self.niter,self.nq),dtype='float64')
+        #    for q in range(self.nq):
+        #        qcheck = self.lut[qget[q]]
+        #        if (qcheck < maxq):
+        #            self.vals[:,q] = fdata['fdata']['vals'][0,:,qcheck]
+        #    self.lut = get_lut(self.qv)  # Rebuild the lookup table since qv has changed
 
             
     def read_dimensions(self,the_file,closefile=False):
@@ -245,7 +276,7 @@ class Shell_Avgs:
 
         """
         self.fd = open(the_file,'rb')        
-        specs = np.fromfile(self.fd,dtype='int32',count=4)
+        specs = np.fromfile(self.fd,dtype='int32',count=6)
         bcheck = specs[0]       # If not 314, we need to swap the bytes
         self.byteswap = False
         if (bcheck != 314):
@@ -253,8 +284,17 @@ class Shell_Avgs:
             self.byteswap = True
             
         self.version = specs[1]
-        self.niter = specs[2]
-        self.nq = specs[3]
+        self.niter   = specs[2]
+        self.nr      = specs[3]
+        self.nq      = specs[4]
+        if (self.version >= 6):
+            self.npcol = specs[5]
+        else:
+            #versions < 6 do not have npcol stored.
+            #rewind by 4 bytes
+            self.fd.seek(-4,1)
+        
+        
         if (closefile):
             self.fd.close()
    
