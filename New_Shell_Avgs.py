@@ -57,7 +57,7 @@ class Shell_Avgs:
               
     """
 
-    def __init__(self,filename='none',path='Shell_Avgs/', ofile='none', qcodes=[]):
+    def __init__(self,filename='none',path='Shell_Avgs/', ofile='none', qcodes=[],concatenate=False):
 
         """
            Initializer for the Shell_Avgs class.
@@ -65,10 +65,12 @@ class Shell_Avgs:
            Input parameters:
                filename  : (a) {string} The Shell_Avgs file to read.
                          : (b) {list of strings} The Shell_Avgs files whose time-series
-                               data you wish to concatenate.
+                               data you wish to concatenate or time-average.
                path      : The directory where the file is located (if full path not in filename)
                qcodes    : {optional; list of ints} Quantity codes you wish to extract (if not all)
                ofile     : {optional; string} Filename to save time-averaged data to, if desired.
+               concatenate : {optional; Boolean} Concatenate data from multiple files if a list is provided.
+                             If a list of files is provided and this flag is not set, data will be time-averaged. 
         """
         # Check to see if we are compiling data from multiple files
         # This is true if (a) ofile is set or (b) filename is a list of files, rather than a single string
@@ -99,8 +101,11 @@ class Shell_Avgs:
         self.read_data(qcodes=qcodes)
         
         if (multiple_files):
-            self.compile_multiple_files(filename, qcodes = qcodes,path=path)
-
+            if (concatenate):
+                self.compile_multiple_files(filename, qcodes = qcodes,path=path)
+            else:
+                self.time_average_files(filename, qcodes = qcodes,path=path)
+                
         if (ofile != 'none'):
             self.write(ofile)
             
@@ -144,11 +149,22 @@ class Shell_Avgs:
                filelist  : {list of strings} The Shell_Avgs files to be concatenated.
                path      : The directory where the files are located (if full path not in filename)
                qcodes    : {optional; list of ints} Quantity codes you wish to extract (if not all)
+
+           Notes:
+                - This routine is incompatibile with version=1 Shell_Avgs due to lack of 
+                  moments output in that original version.  All other versions are compatible.
+                  
+                - This routine assumes radial resolution does not change across files in filelist.
+
         """
+        if (self.version == 1):
+            print('Error: This is a version=1 Shell_Avgs file.  Concatenation only works with version>1 Shell_Avgs.')
+            return
+            
         nfiles = len(filelist)
         new_nrec = self.niter*nfiles
         self.niter = new_nrec
-        self.vals = np.zeros((self.niter,self.nq),dtype='float64')
+        self.vals = np.zeros((self.nr,4,self.nq,self.niter),dtype='float64')
         self.iters = np.zeros(self.niter          ,dtype='int32')
         self.time  = np.zeros(self.niter          ,dtype='float64')        
         
@@ -160,13 +176,20 @@ class Shell_Avgs:
             #we may need to resize the arrays
             if (k+a.niter > self.niter):
                 self.niter = k+a.niter
-                self.vals.resize((self.niter,self.nq))
                 self.time.resize((self.niter))
                 self.iters.resize( (self.niter))
+                # Note that using numpy's resize routine gets a little tricky here
+                # due to the striping of the vals array.  Handle this 'manually'
+                # for now
+                vals = np.zeros((self.nr,4,self.nq,self.niter),dtype='float64')
+                vals[:,:,:,0:k] = self.vals[:,:,:,0:k]
+                self.vals = vals
+
+
 
             self.time[k:k+a.niter]   = a.time[:]
             self.iters[k:k+a.niter]  = a.iters[:]
-            self.vals[k:k+a.niter,:] = a.vals[:]
+            self.vals[:,:,:,k:k+a.niter] = a.vals[:,:,:,:]
             k+=a.niter
             
         # Trim off any excess zeros 
@@ -174,7 +197,52 @@ class Shell_Avgs:
         self.niter = k
         self.time = self.time[0:self.niter]
         self.iters = self.iters[0:self.niter]
-        self.vals = self.vals[0:self.niter,:]
+        self.vals = self.vals[:,:,:,0:self.niter]
+
+
+    def time_average_files(self,filelist,qcodes=[],path=''):
+        """
+           Time-series concatenation routine for the Shell_Avgs class.
+           
+           Input parameters:
+               filelist  : {list of strings} The Shell_Avgs files to be time-averaged.
+               path      : The directory where the files are located (if full path not in filename)
+               qcodes    : {optional; list of ints} Quantity codes you wish to extract (if not all)
+
+           Notes:
+                - This routine is incompatibile with version=1 Shell_Avgs due to lack of 
+                  moments output in that original version.  All other versions are compatible.
+                  
+                - This routine assumes radial resolution does not change across files in filelist.
+
+        """
+        if (self.version == 1):
+            print('Error: This is a version=1 Shell_Avgs file.  Time-averaging only works with version>1 Shell_Avgs.')
+            return
+            
+        nfiles = len(filelist)
+
+        self.niter = 1
+        self.vals = np.zeros((self.nr,4,self.nq,1),dtype='float64')
+        self.iters = np.zeros(2          ,dtype='int32')
+        self.time  = np.zeros(2          ,dtype='float64')        
+        
+        icount = 0
+        for i in range(nfiles):
+            a = Shell_Avgs(filelist[i],qcodes=qcodes,path=path)
+            if (i == 0):
+                self.iters[0] = a.iters[0]
+                self.time[0] = a.time[0]
+
+
+            for j in range(a.niter):
+                self.vals[:,:,:,0]+=a.vals[:,:,:,j]
+            icount+= a.niter  
+
+        self.iters[1] = a.iters[a.niter-1]
+        self.time[1]  = a.time[a.niter-1]
+        self.vals = self.vals/icount
+
         
         
     def read_data(self,qcodes = []):
@@ -201,7 +269,7 @@ class Shell_Avgs:
             if (self.version ==1):
                 one_rec = np.dtype([('vals', np.float64, [self.nq,self.nr]), ('times',np.float64), ('iters', np.int32)  ])
             else:
-                one_rec = np.dtype([('vals', np.float64, [self.nq,4,self.nr]), ('times',np.float64), ('iters', np.int32)  ])   
+                one_rec = np.dtype([('vals', np.float64, [self.nq, 4, self.nr]), ('times',np.float64), ('iters', np.int32)  ])   
             
         else:
             # Things are a little more complicated following the parallel I/O redo.
@@ -223,9 +291,12 @@ class Shell_Avgs:
         self.qv[:] = fdata['qvals'][0,:]
         self.radius[:] = fdata['radius'][0,:]
         
+        ####################################################3
+        # Reading in the values is a little more complicated since the Shell_Avgs
+        # data structure has undergone a few different iterations.
         if (self.version >= 6):
+            vals = np.zeros((self.nr,4,self.nq,self.niter),dtype='float64')
             for i in range(self.niter):
-                # have some work to do...
                 rind=0
                 kone = 0
                 nr_base = self.nr//self.npcol
@@ -236,27 +307,43 @@ class Shell_Avgs:
                         nrout=nrout+1
                     ktwo = kone+nrout*4*self.nq
                     tmp = np.reshape(fdata['fdata']['vals'][0,i,kone:ktwo], (nrout,4,self.nq), order = 'F'   )
-                    self.vals[rind:rind+nrout,:,:,i] = tmp[:,:,:]
+                    vals[rind:rind+nrout,:,:,i] = tmp[:,:,:]
                     rind=rind+nrout            
                     kone = ktwo
-        
+        elif (self.version == 1):
+            #vals = numpy.zeros((self.nr,self.nq,self.niter)
+            vals = np.transpose(fdata['fdata']['vals'][0,:,:,:])
+
+        else:
+            #vals = numpy.zeros((self.niter,self.nq,4,self.nr))
+            vals = np.transpose(fdata['fdata']['vals'][0,:,:,:,:])
+
         self.lut = get_lut(self.qv)  # Lookup table
         
         ########################################################
         # We may want to extract a subset of the quantity codes
-        #if (len(qcodes) == 0):
-        #    self.vals[:,:] = fdata['fdata']['vals'][0,:,:]
-        #else:
-        #    nqfile = self.nq        # number of quantity codes in the file
-        #    qget = np.array(qcodes,dtype='int32')
-        #    self.qv = qget  # Don't update the lookup table yet
-        #    self.nq = len(self.qv)  # number of quantity codes we will extract
-        #    self.vals  = np.zeros((self.niter,self.nq),dtype='float64')
-        #    for q in range(self.nq):
-        #        qcheck = self.lut[qget[q]]
-        #        if (qcheck < maxq):
-        #            self.vals[:,q] = fdata['fdata']['vals'][0,:,qcheck]
-        #    self.lut = get_lut(self.qv)  # Rebuild the lookup table since qv has changed
+        if (len(qcodes) == 0):
+            self.vals = vals
+        else:
+            nqfile = self.nq        # number of quantity codes in the file
+            qget = np.array(qcodes,dtype='int32')
+            self.qv = qget  # Don't update the lookup table yet
+            self.nq = len(self.qv)  # number of quantity codes we will extract
+            
+            if (self.version == 1):
+                self.vals  = np.zeros((self.nr,self.nq, self.niter),dtype='float64')
+            else:
+                self.vals  = np.zeros((self.nr,4, self.nq, self.niter),dtype='float64')            
+                
+            for q in range(self.nq):
+                qcheck = self.lut[qget[q]]
+                if (qcheck < maxq):
+                    if (self.version == 1):
+                        self.vals[:,q,:] = vals[:,qcheck,:]
+                    else:
+                        self.vals[:,:,q,:] = vals[:,:,qcheck,:]
+            self.lut = get_lut(self.qv)  # Rebuild the lookup table since qv has changed
+
 
             
     def read_dimensions(self,the_file,closefile=False):
