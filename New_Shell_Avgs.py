@@ -125,6 +125,18 @@ class Shell_Avgs:
         one_rec = np.dtype([('vals', np.float64, [self.nq,]), ('times',np.float64), ('iters', np.int32)  ])
         fstruct = np.dtype([ ('fdims', np.int32,4), ('qvals', np.int32,(self.nq)), ('fdata', one_rec, [self.niter,])  ])
         
+        
+
+        if (self.version ==1):
+            one_rec = np.dtype([('vals', np.float64, [self.nq,self.nr]), ('times',np.float64), ('iters', np.int32)  ])
+        else:
+            one_rec = np.dtype([('vals', np.float64, [self.nq, 4, self.nr]), ('times',np.float64), ('iters', np.int32)  ])   
+
+        fstruct = np.dtype([ ('qvals', np.int32,(self.nq)), ('radius',np.float64,(self.nr)), ('fdata', one_rec, [self.niter,])  ])
+        
+        
+        
+        
         odata = np.zeros((1,),dtype=fstruct)
         print(odata['fdims'].shape)
         odata['fdims'][0,0]=314
@@ -137,7 +149,14 @@ class Shell_Avgs:
         odata[0]['fdata']['vals'][:,:]=self.vals
         print(odata['qvals'])
         fd = open(outfile,'wb')
-        odata.tofile(fd)
+        dims.tofile(fd)
+        self.qv.tofile(fd)
+        self.radius.tofile(fd)
+        np.transpose(self.vals).tofile(fd)
+        # LEFT OFF HERE. DO THIS FRESH...MAYBE USE DATA STRUCTURE...
+        #if (self.timeavg):
+        #    one_iter = np.zeros(1,dtype='int32')
+        #    one_time = np
         fd.close()
         
 
@@ -227,21 +246,38 @@ class Shell_Avgs:
         self.iters = np.zeros(2          ,dtype='int32')
         self.time  = np.zeros(2          ,dtype='float64')        
         
-        icount = 0
+        #Integrate in time using a midpoint method.
+        last_dt = 0.0
+        total_time = 0.0
+        a = Shell_Avgs(filelist[0],qcodes=qcodes,path=path)
         for i in range(nfiles):
-            a = Shell_Avgs(filelist[i],qcodes=qcodes,path=path)
+            weights = np.zeros(a.niter,dtype='float64')
+            
+            if (i != nfiles-1):
+                b = Shell_Avgs(filelist[i+1],qcodes=qcodes,path=path)
+                
             if (i == 0):
                 self.iters[0] = a.iters[0]
                 self.time[0] = a.time[0]
+                
+            for j in range(a.niter-1):
+                weights[j] = 0.5*(last_dt + a.time[j+1]-a.time[j])
+                
+            if (i != nfiles-1):
+                weights[a.niter-1] = 0.5*(last_dt+b.time[0]-a.time[a.niter-1])
+            else:
+                weights[a.niter-1] = 0.5*(a.time[a.niter-1]-a.time[a.niter-2])
 
-
+            total_time = total_time+np.sum(weights)
             for j in range(a.niter):
-                self.vals[:,:,:,0]+=a.vals[:,:,:,j]
-            icount+= a.niter  
+                self.vals[:,:,:,0]+=a.vals[:,:,:,j]*weights[j]
+            last_dt = a.time[a.niter-1]-a.time[a.niter-2]
+            if (i != nfiles-1):
+                a = b
 
         self.iters[1] = a.iters[a.niter-1]
         self.time[1]  = a.time[a.niter-1]
-        self.vals = self.vals/icount
+        self.vals = self.vals/total_time
 
         
         
