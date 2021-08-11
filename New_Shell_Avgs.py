@@ -26,51 +26,64 @@ class Shell_Avgs:
     self.vals[0:nr-1,0:nq-1,0:niter-1] : The spherically averaged diagnostics
                                              
 
-    For versions > 2:
+    For versions > 1:
     self.vals[0:n-1,0:3,0:nq-1,0:niter-1] : The spherically averaged diagnostics
-                                             0-3 refers to moments (index 0 is mean, index 3 is kurtosis)    
+                                            0-3 refers to moments taken over spherical shells
+                                            (index 0 is mean, index 3 is kurtosis)    
+                                            
     self.iters[0:niter-1]              : The time step numbers stored in this output file
     self.time[0:niter-1]               : The simulation time corresponding to each time step
     self.version                       : The version code for this particular output (internal use)
     self.lut     
 
+    self.time_averaged                 : If True, data has been time averaged.
+                                         In this case, iters and time have dimension 2, and contain the
+                                         initial and final times and iterations of the averaged data.
 
     Initialization Examples:
         (1):  Read in a single Shell_Avgs file
               a = Shell_Avgs('00000001',path='./Shell_Avgs/')
               
+        (2):  Time-average data from multiple Shell_Avgs files:
+              a = Shell_Avgs(['00000001','00000002'])
+              
         (2):  Concatenate time-series data from multiple Shell_Avgs files:
-              a = Shell_Spectra(['00000001','00000002'])
+              a = Shell_Avgs(['00000001','00000002'],time_average=False)
 
-        (3):  Concatenate time-series data from multiple Shell_Avgs files + save data to new Shell_Avgs file:
-              a = Shell_Spectra(['00000001','00000002'],ofile='my_save_file.dat')
+        (3):  Time-averaged data from multiple Shell_Avgs files + save data to new Shell_Avgs file:
+              a = Shell_Avgs(['00000001','00000002'],ofile='my_save_file.dat')
               
         (4):  Concatenate time-series data from multiple Shell_Avgs files.
               Extract only quantity codes 401 and 402:
-              a = Shell_Spectra(['00000001','00000002'], qcodes = [401,402])
+              a = Shell_Avgs(['00000001','00000002'], qcodes = [401,402], time_average = False)
 
     Additional Notes:
-        For concatenated data:
+        For concatenated or averaged data:
         
             - Output files are written in identical format to a standard Shell_Avgs file. They may be
               read in using the same syntax described above.
               
+            - To save concatenated or averaged data to a new file after initialization:
+              a.write('filename')  [ where 'a' is the Shell_Avgs object name]
+              
     """
 
-    def __init__(self,filename='none',path='Shell_Avgs/', ofile='none', qcodes=[],concatenate=False):
+    def __init__(self,filename='none',path='Shell_Avgs/', ofile=None, qcodes=[],time_average=True, ntheta=0):
 
         """
            Initializer for the Shell_Avgs class.
            
            Input parameters:
-               filename  : (a) {string} The Shell_Avgs file to read.
-                         : (b) {list of strings} The Shell_Avgs files whose time-series
+               filename     : (a) {string} The Shell_Avgs file to read.
+                            : (b) {list of strings} The Shell_Avgs files whose time-series
                                data you wish to concatenate or time-average.
-               path      : The directory where the file is located (if full path not in filename)
-               qcodes    : {optional; list of ints} Quantity codes you wish to extract (if not all)
-               ofile     : {optional; string} Filename to save time-averaged data to, if desired.
-               concatenate : {optional; Boolean} Concatenate data from multiple files if a list is provided.
-                             If a list of files is provided and this flag is not set, data will be time-averaged. 
+               path         : The directory where the file is located (if full path not in filename)
+               qcodes       : {optional; list of ints} Quantity codes you wish to extract (default is to extract all)
+               ofile        : {optional; string}; default = None Filename to save time-averaged data to, if desired.
+               time_average : {optional; Boolean; default = True} Time-average data from multiple files if a list is provided.
+                              If a list of files is provided and this flag is set to False, data will be concatenated instead. 
+               ntheta       : {optional; int; default = 0} Set this value to correct the variance in 
+                              version=2 Shell_Avgs (only mean is preserved otherwise for that version).
         """
         # Check to see if we are compiling data from multiple files
         # This is true if (a) ofile is set or (b) filename is a list of files, rather than a single string
@@ -97,16 +110,17 @@ class Shell_Avgs:
             mainfile = filename[0]
         
         # Read the main file no matter what    
+        print('mainfile is: ', mainfile)
         self.read_dimensions(mainfile)   
-        self.read_data(qcodes=qcodes)
+        self.read_data(qcodes=qcodes, ntheta=ntheta)
         
         if (multiple_files):
-            if (concatenate):
-                self.compile_multiple_files(filename, qcodes = qcodes,path=path)
+            if (not time_average):
+                self.compile_multiple_files(filename, qcodes = qcodes,path=path,ntheta=ntheta)
             else:
-                self.time_average_files(filename, qcodes = qcodes,path=path)
+                self.time_average_files(filename, qcodes = qcodes,path=path, ntheta=ntheta)
                 
-        if (ofile != 'none'):
+        if (ofile != None):
             self.write(ofile)
             
             
@@ -118,8 +132,8 @@ class Shell_Avgs:
                outfile  : (a) {string} The Shell_Avgs file to be written.
 
             Calling Syntax:
-                my_gavgs.write("my_file.dat")
-                (writes all data contained in my_gavgs to my_file.dat, in standard Shell_Avgs format)
+                my_shellavgs.write("my_file.dat")
+                (writes all data contained in my_shellavgs to my_file.dat, in standard Shell_Avgs format)
 
         """
 
@@ -134,9 +148,7 @@ class Shell_Avgs:
 
         fstruct = np.dtype([('fdims', np.int32, numdim), ('qvals', np.int32,(self.nq)), ('radius',np.float64,(self.nr)), ('fdata', one_rec, [self.niter,])  ])
         
-        
-        
-        
+                        
         odata = np.zeros((1,),dtype=fstruct)
         odata['fdims'][0,0]=314
         odata[0]['fdims'][1]=self.version
@@ -154,6 +166,7 @@ class Shell_Avgs:
             odata[0]['fdata']['vals'][:,:,:,:]=np.transpose(self.vals[:,:,:,:])
         else:
             odata[0]['fdata']['vals'][:,:,:]=np.transpose(self.vals[:,:,:])	
+            
         fd = open(outfile,'wb')
         odata.tofile(fd)
         if (self.time_averaged):
@@ -162,7 +175,7 @@ class Shell_Avgs:
         fd.close()
         
 
-    def compile_multiple_files(self,filelist,qcodes=[],path=''):
+    def compile_multiple_files(self,filelist,qcodes=[],path='', ntheta=0):
         """
            Time-series concatenation routine for the Shell_Avgs class.
            
@@ -170,7 +183,8 @@ class Shell_Avgs:
                filelist  : {list of strings} The Shell_Avgs files to be concatenated.
                path      : The directory where the files are located (if full path not in filename)
                qcodes    : {optional; list of ints} Quantity codes you wish to extract (if not all)
-
+               ntheta    : {optional; int; default = 0} Set this value to correct the variance in 
+                           version=2 Shell_Avgs (only mean is preserved otherwise for that version).
            Notes:
                 - This routine is incompatibile with version=1 Shell_Avgs due to lack of 
                   moments output in that original version.  All other versions are compatible.
@@ -191,7 +205,7 @@ class Shell_Avgs:
         
         k = 0
         for i in range(nfiles):
-            a = Shell_Avgs(filelist[i],qcodes=qcodes,path=path)
+            a = Shell_Avgs(filelist[i],qcodes=qcodes,path=path, ntheta=ntheta)
 
             #If the iteration count isn't constant throughout a run,
             #we may need to resize the arrays
@@ -206,22 +220,20 @@ class Shell_Avgs:
                 vals[:,:,:,0:k] = self.vals[:,:,:,0:k]
                 self.vals = vals
 
-
-
             self.time[k:k+a.niter]   = a.time[:]
             self.iters[k:k+a.niter]  = a.iters[:]
             self.vals[:,:,:,k:k+a.niter] = a.vals[:,:,:,:]
             k+=a.niter
             
         # Trim off any excess zeros 
-        # (in case last final was incomplete)
+        # (in case last file was incomplete)
         self.niter = k
         self.time = self.time[0:self.niter]
         self.iters = self.iters[0:self.niter]
         self.vals = self.vals[:,:,:,0:self.niter]
 
 
-    def time_average_files(self,filelist,qcodes=[],path=''):
+    def time_average_files(self,filelist,qcodes=[],path='',ntheta=0):
         """
            Time-series concatenation routine for the Shell_Avgs class.
            
@@ -229,6 +241,8 @@ class Shell_Avgs:
                filelist  : {list of strings} The Shell_Avgs files to be time-averaged.
                path      : The directory where the files are located (if full path not in filename)
                qcodes    : {optional; list of ints} Quantity codes you wish to extract (if not all)
+               ntheta    : {optional; int; default = 0} Set this value to correct the variance in 
+                           version=2 Shell_Avgs (only mean is preserved otherwise for that version).               
 
            Notes:
                 - This routine is incompatibile with version=1 Shell_Avgs due to lack of 
@@ -251,12 +265,12 @@ class Shell_Avgs:
         #Integrate in time using a midpoint method.
         last_dt = 0.0
         total_time = 0.0
-        a = Shell_Avgs(filelist[0],qcodes=qcodes,path=path)
+        a = Shell_Avgs(filelist[0],qcodes=qcodes,path=path,ntheta=ntheta)
         for i in range(nfiles):
             weights = np.zeros(a.niter,dtype='float64')
             
             if (i != nfiles-1):
-                b = Shell_Avgs(filelist[i+1],qcodes=qcodes,path=path)
+                b = Shell_Avgs(filelist[i+1],qcodes=qcodes,path=path,ntheta=ntheta)
                 
             if (i == 0):
                 self.iters[0] = a.iters[0]
@@ -281,14 +295,17 @@ class Shell_Avgs:
         self.time[1]  = a.time[a.niter-1]
         self.vals = self.vals/total_time
         self.version=a.version+100  # 100+ version numbers indicate time-averaging
+        self.time_averaged = True
         
         
-    def read_data(self,qcodes = []):
+    def read_data(self,qcodes = [],ntheta=0):
         """
            Data-reading routine for the Shell_Avgs class.
            
            Input parameters:
                qcodes    : {optional; list of ints} Quantity codes you wish to extract (if not all)
+               ntheta    : {optional; int; default = 0} Set this value to correct the variance in 
+                           version=2 Shell_Avgs (only mean is preserved otherwise for that version).
            
            Notes:
                 - This routine does not read header information.  Read_dimensions must be called first
@@ -391,6 +408,22 @@ class Shell_Avgs:
             self.lut = get_lut(self.qv)  # Rebuild the lookup table since qv has changed
 
 
+            # Version 2 had an error with the 2nd through 4th moments.  The mean was correct.
+            # The variance can be corrected after the fact if the value of ntheta is provided.
+            if (self.version==2):
+                nphi = 2*ntheta
+                self.vals[:,2:4,:,:] = 0.0
+                if (nphi > 0):
+                    cfactor = -1.0-1.0/nphi**2+2.0/nphi
+                    print('This ShellAverage file is version 2, but ntheta was provided.')
+                    print('The 2nd moment has been corrected.  3rd and 4th moments are set to zero')
+                    for i in range(nr):
+                        self.vals[i,1,:,:] = self.vals[i,1,:,:]+cfactor*self.vals[i,0,:,:]**2
+                else:
+                    print('This ShellAverage file is version 2, and ntheta was not provided.')
+                    print('The 2nd, 3rd and 4th moments are set to zero')   
+                    self.vals[:,1,:,:] = 0.0     
+
             
     def read_dimensions(self,the_file,closefile=False):
         """
@@ -408,6 +441,7 @@ class Shell_Avgs:
                    
 
         """
+        print('the_file is: ', the_file)
         self.fd = open(the_file,'rb')        
         specs = np.fromfile(self.fd,dtype='int32',count=6)
         bcheck = specs[0]       # If not 314, we need to swap the bytes
