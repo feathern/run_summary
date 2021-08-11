@@ -92,7 +92,7 @@ class Shell_Avgs:
         #(a)
         multiple_files = False
         mainfile=filename
-        if (ofile != 'none'):
+        if (ofile != None):
             multiple_files = True
             
         #(b)
@@ -205,6 +205,7 @@ class Shell_Avgs:
         
         k = 0
         for i in range(nfiles):
+            print('flist: ', filelist[i])
             a = Shell_Avgs(filelist[i],qcodes=qcodes,path=path, ntheta=ntheta)
 
             #If the iteration count isn't constant throughout a run,
