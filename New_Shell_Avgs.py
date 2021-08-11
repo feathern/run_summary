@@ -122,41 +122,43 @@ class Shell_Avgs:
                 (writes all data contained in my_gavgs to my_file.dat, in standard Shell_Avgs format)
 
         """
-        one_rec = np.dtype([('vals', np.float64, [self.nq,]), ('times',np.float64), ('iters', np.int32)  ])
-        fstruct = np.dtype([ ('fdims', np.int32,4), ('qvals', np.int32,(self.nq)), ('fdata', one_rec, [self.niter,])  ])
-        
-        
 
+        numdim = 5
+        if (self.version > 5):
+            numdim = 6
+        
         if (self.version ==1):
             one_rec = np.dtype([('vals', np.float64, [self.nq,self.nr]), ('times',np.float64), ('iters', np.int32)  ])
         else:
             one_rec = np.dtype([('vals', np.float64, [self.nq, 4, self.nr]), ('times',np.float64), ('iters', np.int32)  ])   
 
-        fstruct = np.dtype([ ('qvals', np.int32,(self.nq)), ('radius',np.float64,(self.nr)), ('fdata', one_rec, [self.niter,])  ])
+        fstruct = np.dtype([('fdims', np.int32, numdim), ('qvals', np.int32,(self.nq)), ('radius',np.float64,(self.nr)), ('fdata', one_rec, [self.niter,])  ])
         
         
         
         
         odata = np.zeros((1,),dtype=fstruct)
-        print(odata['fdims'].shape)
         odata['fdims'][0,0]=314
         odata[0]['fdims'][1]=self.version
         odata[0]['fdims'][2]=self.niter
-        odata[0]['fdims'][3]=self.nq
+        odata[0]['fdims'][3]=self.nr
+        odata[0]['fdims'][4]=self.nq
+        if (self.version > 5):
+            odata[0]['fdims'][5]=1 #Data has been collated now.  Set npcol to 1.
+	                
         odata[0]['qvals'][:]=self.qv[:]
-        odata[0]['fdata']['times'][:]=self.time
-        odata[0]['fdata']['iters'][:]=self.iters
-        odata[0]['fdata']['vals'][:,:]=self.vals
-        print(odata['qvals'])
+        odata[0]['radius'][:]=self.radius[:]
+        odata[0]['fdata']['times'][:]=self.time[0:self.niter]
+        odata[0]['fdata']['iters'][:]=self.iters[0:self.niter]
+        if (self.version > 1):
+            odata[0]['fdata']['vals'][:,:,:,:]=np.transpose(self.vals[:,:,:,:])
+        else:
+            odata[0]['fdata']['vals'][:,:,:]=np.transpose(self.vals[:,:,:])	
         fd = open(outfile,'wb')
-        dims.tofile(fd)
-        self.qv.tofile(fd)
-        self.radius.tofile(fd)
-        np.transpose(self.vals).tofile(fd)
-        # LEFT OFF HERE. DO THIS FRESH...MAYBE USE DATA STRUCTURE...
-        #if (self.timeavg):
-        #    one_iter = np.zeros(1,dtype='int32')
-        #    one_time = np
+        odata.tofile(fd)
+        if (self.time_averaged):
+            self.time[1].tofile(fd)
+            self.iters[1].tofile(fd)
         fd.close()
         
 
@@ -278,7 +280,7 @@ class Shell_Avgs:
         self.iters[1] = a.iters[a.niter-1]
         self.time[1]  = a.time[a.niter-1]
         self.vals = self.vals/total_time
-
+        self.version=a.version+100  # 100+ version numbers indicate time-averaging
         
         
     def read_data(self,qcodes = []):
@@ -295,8 +297,10 @@ class Shell_Avgs:
     
         self.qv    = np.zeros(self.nq             ,dtype='int32')
         self.vals  = np.zeros((self.nr, 4, self.nq, self.niter),dtype='float64')
-        self.iters = np.zeros(self.niter          ,dtype='int32')
-        self.time  = np.zeros(self.niter          ,dtype='float64')
+        self.iters = np.zeros(self.niter+self.time_averaged          ,dtype='int32')
+        self.time  = np.zeros(self.niter+self.time_averaged          ,dtype='float64')
+   
+            
         self.radius = np.zeros(self.nr, dtype='float64')
 
         # Set up the record structure
@@ -317,13 +321,19 @@ class Shell_Avgs:
         
         if (self.byteswap):
                 fdata = np.fromfile(self.fd,dtype=fstruct,count=1).byteswap()
+                if (self.time_averaged):
+                    self.time[1] = np.fromfile(self.fd,dtype='float64',count=1).byteswap() 
+                    self.iters[1] = np.fromfile(self.fd,dtype='int32',count=1).byteswap()    
         else:
                 fdata = np.fromfile(self.fd,dtype=fstruct)
-                
+                if (self.time_averaged):
+                    self.time[1] = np.fromfile(self.fd,dtype='float64',count=1) 
+                    self.iters[1] = np.fromfile(self.fd,dtype='int32',count=1)                  
+
         self.fd.close()
         
-        self.time[:] = fdata['fdata']['times'][0,:]
-        self.iters[:] = fdata['fdata']['iters'][0,:]
+        self.time[:] = fdata['fdata']['times'][0,:self.niter]
+        self.iters[:] = fdata['fdata']['iters'][0,:self.niter]
         self.qv[:] = fdata['qvals'][0,:]
         self.radius[:] = fdata['radius'][0,:]
         
@@ -417,7 +427,7 @@ class Shell_Avgs:
             #rewind by 4 bytes
             self.fd.seek(-4,1)
         
-        
+        self.time_averaged = (self.version > 100)
         if (closefile):
             self.fd.close()
    
