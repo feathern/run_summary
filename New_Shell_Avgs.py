@@ -22,14 +22,10 @@ class Shell_Avgs:
     self.qv[0:nq-1]                    : quantity codes for the diagnostics output
     self.radius[0:nr-1]                : radial grid
 
-    For version 1 (earliest Rayleigh versions):
-    self.vals[0:nr-1,0:nq-1,0:niter-1] : The spherically averaged diagnostics
-                                             
-
-    For versions > 1:
     self.vals[0:n-1,0:3,0:nq-1,0:niter-1] : The spherically averaged diagnostics
                                             0-3 refers to moments taken over spherical shells
-                                            (index 0 is mean, index 3 is kurtosis)    
+                                            (index 0 is mean, index 3 is kurtosis)   
+                                            Note - only the mean was output in version 1 outputs. 
                                             
     self.iters[0:niter-1]              : The time step numbers stored in this output file
     self.time[0:niter-1]               : The simulation time corresponding to each time step
@@ -164,7 +160,7 @@ class Shell_Avgs:
         if (self.version > 1):
             odata[0]['fdata']['vals'][:,:,:,:]=np.transpose(self.vals[:,:,:,:])
         else:
-            odata[0]['fdata']['vals'][:,:,:]=np.transpose(self.vals[:,:,:])	
+            odata[0]['fdata']['vals'][:,:,:]=np.transpose(self.vals[:,0,:,:])	
             
         fd = open(outfile,'wb')
         odata.tofile(fd)
@@ -185,15 +181,10 @@ class Shell_Avgs:
                ntheta    : {optional; int; default = 0} Set this value to correct the variance in 
                            version=2 Shell_Avgs (only mean is preserved otherwise for that version).
            Notes:
-                - This routine is incompatibile with version=1 Shell_Avgs due to lack of 
-                  moments output in that original version.  All other versions are compatible.
                   
                 - This routine assumes radial resolution does not change across files in filelist.
 
         """
-        if (self.version == 1):
-            print('Error: This is a version=1 Shell_Avgs file.  Concatenation only works with version>1 Shell_Avgs.')
-            return
             
         nfiles = len(filelist)
         new_nrec = self.niter*nfiles
@@ -245,15 +236,11 @@ class Shell_Avgs:
                            version=2 Shell_Avgs (only mean is preserved otherwise for that version).               
 
            Notes:
-                - This routine is incompatibile with version=1 Shell_Avgs due to lack of 
-                  moments output in that original version.  All other versions are compatible.
                   
                 - This routine assumes radial resolution does not change across files in filelist.
 
         """
-        if (self.version == 1):
-            print('Error: This is a version=1 Shell_Avgs file.  Time-averaging only works with version>1 Shell_Avgs.')
-            return
+
             
         nfiles = len(filelist)
 
@@ -294,7 +281,7 @@ class Shell_Avgs:
         self.iters[1] = a.iters[a.niter-1]
         self.time[1]  = a.time[a.niter-1]
         self.vals = self.vals/total_time
-        self.version=a.version+100  # 100+ version numbers indicate time-averaging
+        self.version=-self.version # negative version numbers indicate time-averaging
         self.time_averaged = True
         
         
@@ -375,8 +362,9 @@ class Shell_Avgs:
                     kone = ktwo
         elif (self.version == 1):
             #vals = numpy.zeros((self.nr,self.nq,self.niter)
-            vals = np.transpose(fdata['fdata']['vals'][0,:,:,:])
-
+            vals0 = np.transpose(fdata['fdata']['vals'][0,:,:,:])
+            vals = np.zeros((self.nr,4,self.nq,self.niter),dtype='float64')
+            vals[:,0,:,:] = vals0[:,:,:]
         else:
             #vals = numpy.zeros((self.niter,self.nq,4,self.nr))
             vals = np.transpose(fdata['fdata']['vals'][0,:,:,:,:])
@@ -393,18 +381,13 @@ class Shell_Avgs:
             self.qv = qget  # Don't update the lookup table yet
             self.nq = len(self.qv)  # number of quantity codes we will extract
             
-            if (self.version == 1):
-                self.vals  = np.zeros((self.nr,self.nq, self.niter),dtype='float64')
-            else:
-                self.vals  = np.zeros((self.nr,4, self.nq, self.niter),dtype='float64')            
+
+            self.vals  = np.zeros((self.nr,4, self.nq, self.niter),dtype='float64')            
                 
             for q in range(self.nq):
                 qcheck = self.lut[qget[q]]
                 if (qcheck < maxq):
-                    if (self.version == 1):
-                        self.vals[:,q,:] = vals[:,qcheck,:]
-                    else:
-                        self.vals[:,:,q,:] = vals[:,:,qcheck,:]
+                    self.vals[:,:,q,:] = vals[:,:,qcheck,:]
             self.lut = get_lut(self.qv)  # Rebuild the lookup table since qv has changed
 
 
@@ -461,7 +444,7 @@ class Shell_Avgs:
             #rewind by 4 bytes
             self.fd.seek(-4,1)
         
-        self.time_averaged = (self.version > 100)
+        self.time_averaged = (self.version < 0)
         if (closefile):
             self.fd.close()
    
