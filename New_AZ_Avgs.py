@@ -68,7 +68,7 @@ class AZ_Avgs:
               
     """
 
-    def __init__(self,filename='none',path='AZ_Avgs/', ofile=None, qcodes=[],time_average=True):
+    def __init__(self,filename='none',path='AZ_Avgs/', ofile=None, qcodes=[],time_average=True, dt = -1, nfiles=-1):
 
         """
            Initializer for the AZ_Avgs class.
@@ -82,6 +82,11 @@ class AZ_Avgs:
                ofile        : {optional; string}; default = None Filename to save time-averaged data to, if desired.
                time_average : {optional; Boolean; default = True} Time-average data from multiple files if a list is provided.
                               If a list of files is provided and this flag is set to False, data will be concatenated instead. 
+               nfiles    : optional -- number of files to read relative to last file 
+                                       in the list (time-averaging mode only; default is all files)
+               dt        : optional -- maximum time to average over, relative to
+                                       final iteration of last file in the list
+                                       (time-averaging mode only; default is all time)                                  
         """
         # Check to see if we are compiling data from multiple files
         # This is true if (a) ofile is set or (b) filename is a list of files, rather than a single string
@@ -115,7 +120,7 @@ class AZ_Avgs:
             if (not time_average):
                 self.compile_multiple_files(filename, qcodes = qcodes,path=path,ntheta=ntheta)
             else:
-                self.time_average_files(filename, qcodes = qcodes,path=path, ntheta=ntheta)
+                self.time_average_files(filename, qcodes = qcodes,path=path, ntheta=ntheta, dt = dt, nfiles = nfiles)
                 
         if (ofile != None):
             self.write(ofile)
@@ -224,67 +229,88 @@ class AZ_Avgs:
         self.vals = self.vals[:,:,:,0:self.niter]
 
 
-    def time_average_files(self,filelist,qcodes=[],path=''):
+    def time_average_files(self,filelist,qcodes=[],path='',ntheta=0, dt=-1,nfiles=-1):
         """
-           Time-series concatenation routine for the AZ_Avgs class.
+           Time-series concatenation routine for the Shell_Avgs class.
            
            Input parameters:
-               filelist  : {list of strings} The AZ_Avgs files to be time-averaged.
+               filelist  : {list of strings} The Shell_Avgs files to be time-averaged.
                path      : The directory where the files are located (if full path not in filename)
                qcodes    : {optional; list of ints} Quantity codes you wish to extract (if not all)
                ntheta    : {optional; int; default = 0} Set this value to correct the variance in 
-                           version=2 AZ_Avgs (only mean is preserved otherwise for that version).               
-
+                           version=2 Shell_Avgs (only mean is preserved otherwise for that version).               
+               nfiles    : optional -- number of files to read relative to last file 
+                                       in the list (default is all files)
+               dt        : optional -- maximum time to average over, relative to
+                                       final iteration of last file in the list
+                                       (default is all time)
            Notes:
-                - This routine is incompatibile with version=1 AZ_Avgs due to lack of 
-                  moments output in that original version.  All other versions are compatible.
                   
                 - This routine assumes radial resolution does not change across files in filelist.
-
+                - This routine assumes that each file contains AT LEAST 2 timesteps.
         """
-
+        
+        numfiles = len(filelist)
+        flast = -1
+        if (nfiles > 0):
+            flast = numfiles-nfiles
+        if (flast < 0):
+            flast = 0
             
-        nfiles = len(filelist)
 
         self.niter = 1
-        self.vals = np.zeros((self.ntheta,self.nr,self.nq,1),dtype='float64')
+        self.vals = np.zeros((self.ntheta, self.nr,self.nq,1),dtype='float64')
         self.iters = np.zeros(2          ,dtype='int32')
         self.time  = np.zeros(2          ,dtype='float64')        
         
         #Integrate in time using a midpoint method.
         last_dt = 0.0
         total_time = 0.0
-        a = AZ_Avgs(filelist[0],qcodes=qcodes,path=path)
-        for i in range(nfiles):
+
+        # Read the initial file (last in the list). 
+        # Go ahead and store the last time and iteration in that file.
+        a = AZ_Avgs(filelist[numfiles-1],qcodes=qcodes,path=path,ntheta=ntheta)
+        self.iters[1] = a.iters[a.niter-1]
+        self.time[1] = a.time[a.niter-1]
+
+        for i in range(numfiles-1,flast-1,-1):
+            print('on file: ', i)
             weights = np.zeros(a.niter,dtype='float64')
             
-            if (i != nfiles-1):
-                b = AZ_Avgs(filelist[i+1],qcodes=qcodes,path=path)
+            if (i != 0):
+                #Read in the next file for time-step information
+                b = AZ_Avgs(filelist[i-1],qcodes=qcodes,path=path,ntheta=ntheta)
+            
+            weights[a.niter-1] = 0.5*(last_dt+a.time[a.niter-1]-a.time[a.niter-2])
+            for j in range(a.niter-2,0,-1):
+                weights[j] = 0.5*(a.time[j+1] -a.time[j-1])
                 
-            if (i == 0):
-                self.iters[0] = a.iters[0]
-                self.time[0] = a.time[0]
-                
-            for j in range(a.niter-1):
-                weights[j] = 0.5*(last_dt + a.time[j+1]-a.time[j])
-                
-            if (i != nfiles-1):
-                weights[a.niter-1] = 0.5*(last_dt+b.time[0]-a.time[a.niter-1])
+            if (i != 0):
+                last_dt = a.time[0]-b.time[b.niter-1]
+                weights[0] = 0.5*(a.time[1]-b.time[b.niter-1])
             else:
-                weights[a.niter-1] = 0.5*(a.time[a.niter-1]-a.time[a.niter-2])
+                weights[0] = 0.5*(a.time[1]-a.time[0])
 
-            total_time = total_time+np.sum(weights)
+            
             for j in range(a.niter):
-                self.vals[:,:,:,0]+=a.vals[:,:,:,j]*weights[j]
-            last_dt = a.time[a.niter-1]-a.time[a.niter-2]
-            if (i != nfiles-1):
+                time_check = True
+                if (dt > 0):
+                    dt0 = self.time[1]-a.time[j]
+                    if (dt0 > dt):
+                        time_check = False
+                if (time_check):
+                    self.vals[:,:,:,0]+=a.vals[:,:,:,j]*weights[j]
+                    total_time += weights[j]
+                    self.iters[0] = a.iters[j]
+                    self.time[0] = a.time[j]
+
+            if (i != flast):
                 a = b
 
-        self.iters[1] = a.iters[a.niter-1]
-        self.time[1]  = a.time[a.niter-1]
         self.vals = self.vals/total_time
-        self.version=a.version+100  # 100+ version numbers indicate time-averaging
+        self.version=-self.version # negative version numbers indicate time-averaging
         self.time_averaged = True
+
         
         
     def read_data(self,qcodes = []):
@@ -394,7 +420,7 @@ class AZ_Avgs:
         self.ntheta  = specs[4]
         self.nq      = specs[5]
         
-        self.time_averaged = (self.version > 100)
+        self.time_averaged = (self.version < 0)
         if (closefile):
             self.fd.close()
    

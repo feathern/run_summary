@@ -64,7 +64,7 @@ class Shell_Avgs:
               
     """
 
-    def __init__(self,filename='none',path='Shell_Avgs/', ofile=None, qcodes=[],time_average=True, ntheta=0):
+    def __init__(self,filename='none',path='Shell_Avgs/', ofile=None, qcodes=[],time_average=True, ntheta=0, nfiles = -1, dt = -1):
 
         """
            Initializer for the Shell_Avgs class.
@@ -80,6 +80,11 @@ class Shell_Avgs:
                               If a list of files is provided and this flag is set to False, data will be concatenated instead. 
                ntheta       : {optional; int; default = 0} Set this value to correct the variance in 
                               version=2 Shell_Avgs (only mean is preserved otherwise for that version).
+               nfiles    : optional -- number of files to read relative to last file 
+                                       in the list (time-averaging mode only; default is all files)
+               dt        : optional -- maximum time to average over, relative to
+                                       final iteration of last file in the list
+                                       (time-averaging mode only; default is all time)                              
         """
         # Check to see if we are compiling data from multiple files
         # This is true if (a) ofile is set or (b) filename is a list of files, rather than a single string
@@ -113,7 +118,7 @@ class Shell_Avgs:
             if (not time_average):
                 self.compile_multiple_files(filename, qcodes = qcodes,path=path,ntheta=ntheta)
             else:
-                self.time_average_files(filename, qcodes = qcodes,path=path, ntheta=ntheta)
+                self.time_average_files(filename, qcodes = qcodes,path=path, ntheta=ntheta, nfiles = nfiles, dt = dt)
                 
         if (ofile != None):
             self.write(ofile)
@@ -224,7 +229,7 @@ class Shell_Avgs:
         self.vals = self.vals[:,:,:,0:self.niter]
 
 
-    def time_average_files(self,filelist,qcodes=[],path='',ntheta=0):
+    def time_average_files(self,filelist,qcodes=[],path='',ntheta=0, dt=-1,nfiles=-1):
         """
            Time-series concatenation routine for the Shell_Avgs class.
            
@@ -234,15 +239,24 @@ class Shell_Avgs:
                qcodes    : {optional; list of ints} Quantity codes you wish to extract (if not all)
                ntheta    : {optional; int; default = 0} Set this value to correct the variance in 
                            version=2 Shell_Avgs (only mean is preserved otherwise for that version).               
-
+               nfiles    : optional -- number of files to read relative to last file 
+                                       in the list (default is all files)
+               dt        : optional -- maximum time to average over, relative to
+                                       final iteration of last file in the list
+                                       (default is all time)
            Notes:
                   
                 - This routine assumes radial resolution does not change across files in filelist.
-
+                - This routine assumes that each file contains AT LEAST 2 timesteps.
         """
-
+        
+        numfiles = len(filelist)
+        flast = -1
+        if (nfiles > 0):
+            flast = numfiles-nfiles
+        if (flast < 0):
+            flast = 0
             
-        nfiles = len(filelist)
 
         self.niter = 1
         self.vals = np.zeros((self.nr,4,self.nq,1),dtype='float64')
@@ -252,34 +266,47 @@ class Shell_Avgs:
         #Integrate in time using a midpoint method.
         last_dt = 0.0
         total_time = 0.0
-        a = Shell_Avgs(filelist[0],qcodes=qcodes,path=path,ntheta=ntheta)
-        for i in range(nfiles):
+
+        # Read the initial file (last in the list). 
+        # Go ahead and store the last time and iteration in that file.
+        a = Shell_Avgs(filelist[numfiles-1],qcodes=qcodes,path=path,ntheta=ntheta)
+        self.iters[1] = a.iters[a.niter-1]
+        self.time[1] = a.time[a.niter-1]
+
+        for i in range(numfiles-1,flast-1,-1):
+            print('on file: ', i)
             weights = np.zeros(a.niter,dtype='float64')
             
-            if (i != nfiles-1):
-                b = Shell_Avgs(filelist[i+1],qcodes=qcodes,path=path,ntheta=ntheta)
+            if (i != 0):
+                #Read in the next file for time-step information
+                b = Shell_Avgs(filelist[i-1],qcodes=qcodes,path=path,ntheta=ntheta)
+            
+            weights[a.niter-1] = 0.5*(last_dt+a.time[a.niter-1]-a.time[a.niter-2])
+            for j in range(a.niter-2,0,-1):
+                weights[j] = 0.5*(a.time[j+1] -a.time[j-1])
                 
-            if (i == 0):
-                self.iters[0] = a.iters[0]
-                self.time[0] = a.time[0]
-                
-            for j in range(a.niter-1):
-                weights[j] = 0.5*(last_dt + a.time[j+1]-a.time[j])
-                
-            if (i != nfiles-1):
-                weights[a.niter-1] = 0.5*(last_dt+b.time[0]-a.time[a.niter-1])
+            if (i != 0):
+                last_dt = a.time[0]-b.time[b.niter-1]
+                weights[0] = 0.5*(a.time[1]-b.time[b.niter-1])
             else:
-                weights[a.niter-1] = 0.5*(a.time[a.niter-1]-a.time[a.niter-2])
+                weights[0] = 0.5*(a.time[1]-a.time[0])
 
-            total_time = total_time+np.sum(weights)
+            
             for j in range(a.niter):
-                self.vals[:,:,:,0]+=a.vals[:,:,:,j]*weights[j]
-            last_dt = a.time[a.niter-1]-a.time[a.niter-2]
-            if (i != nfiles-1):
+                time_check = True
+                if (dt > 0):
+                    dt0 = self.time[1]-a.time[j]
+                    if (dt0 > dt):
+                        time_check = False
+                if (time_check):
+                    self.vals[:,:,:,0]+=a.vals[:,:,:,j]*weights[j]
+                    total_time += weights[j]
+                    self.iters[0] = a.iters[j]
+                    self.time[0] = a.time[j]
+
+            if (i != flast):
                 a = b
 
-        self.iters[1] = a.iters[a.niter-1]
-        self.time[1]  = a.time[a.niter-1]
         self.vals = self.vals/total_time
         self.version=-self.version # negative version numbers indicate time-averaging
         self.time_averaged = True
