@@ -110,7 +110,6 @@ class G_Avgs:
         fstruct = np.dtype([ ('fdims', np.int32,4), ('qvals', np.int32,(self.nq)), ('fdata', one_rec, [self.niter,])  ])
         
         odata = np.zeros((1,),dtype=fstruct)
-        print(odata['fdims'].shape)
         odata['fdims'][0,0]=314
         odata[0]['fdims'][1]=self.version
         odata[0]['fdims'][2]=self.niter
@@ -119,7 +118,6 @@ class G_Avgs:
         odata[0]['fdata']['times'][:]=self.time
         odata[0]['fdata']['iters'][:]=self.iters
         odata[0]['fdata']['vals'][:,:]=self.vals
-        print(odata['qvals'])
         fd = open(outfile,'wb')
         odata.tofile(fd)
         fd.close()

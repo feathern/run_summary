@@ -274,7 +274,7 @@ class Shell_Avgs:
         self.time[1] = a.time[a.niter-1]
 
         for i in range(numfiles-1,flast-1,-1):
-            print('on file: ', i)
+
             weights = np.zeros(a.niter,dtype='float64')
             
             if (i != 0):

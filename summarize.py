@@ -1,6 +1,9 @@
 # Summarization Script
-from rayleigh_diagnostics import build_file_list, TimeAvg_AZAverages, AZ_Avgs, TimeAvg_ShellAverages, Shell_Avgs, Compile_GlobalAverages
-from rayleigh_diagnostics import Shell_Spectra, TimeAvg_ShellSpectra
+from New_G_Avgs import G_Avgs
+from New_Shell_Avgs import Shell_Avgs
+from New_Shell_Spectra import Shell_Spectra
+from New_AZ_Avgs import AZ_Avgs
+from rayleigh_diagnostics import build_file_list
 from snapshot_g_avgs import plot_energy_v_time
 from snapshot_shell_avgs import plot_energy_v_radius, plot_energy_flux
 from snapshot_shell_spectra import plot_spectra
@@ -24,6 +27,9 @@ prefs = importlib.import_module(pfile)
 mnames = []
 indirs = ['/home/feathern/runs/model_69_2']
 outdirs = ['/home/feathern/runs/snapshot/model_69_2']
+
+indirs = ['/home/feathern/runs/sample_out']
+outdirs = ['/home/feathern/runs/snapshot/sample_out']
 
 twait = 1000 # max time to wait on any command (seconds)
 
@@ -51,10 +57,10 @@ print(outdirs)
 
 process_G_Avgs        = prefs.process_G_Avgs
 process_Shell_Avgs    = prefs.process_Shell_Avgs 
-process_AZ_Avgs       = prefs.process_AZ_Avgs 
-process_Shell_Spectra = prefs.process_Shell_Spectra 
-process_Shell_Slices  = prefs.process_Shell_Slices 
-process_Checkpoints   = prefs.process_Checkpoints 
+process_AZ_Avgs       = prefs.process_AZ_Avgs*0 
+process_Shell_Spectra = prefs.process_Shell_Spectra*0 
+process_Shell_Slices  = prefs.process_Shell_Slices*0 
+process_Checkpoints   = prefs.process_Checkpoints*0 
 
 plot_G_Avgs        = prefs.plot_G_Avgs
 plot_Shell_Avgs    = prefs.plot_Shell_Avgs
@@ -103,7 +109,7 @@ for i,indir in enumerate(indirs):
             if (len(gafiles) > 0):
                 have_G_Avgs = True
                 ga_ofile=snapdir+'/G_Avgs.dat'
-                Compile_GlobalAverages(gafiles,ga_ofile, nfiles=prefs.num_G_Avgs, qcodes = prefs.globalavg_values) 
+                g=G_Avgs(gafiles,ofile=ga_ofile, qcodes = prefs.globalavg_values, path='') 
                 if (plot_G_Avgs):
                     titles += ['Kinetic Energy vs. Time']+prefs.magnetic*['Magnetic Energy vs. Time']
             else:
@@ -123,7 +129,7 @@ for i,indir in enumerate(indirs):
             if (len(safiles) > 0):     
                 have_Shell_Avgs = True
                 sa_ofile=snapdir+'/Shell_Avgs.dat'
-                TimeAvg_ShellAverages(safiles,sa_ofile, qcodes=prefs.shellavg_values, dt = 1e8,  nfiles = prefs.num_Shell_Avgs)
+                sa = Shell_Avgs(safiles,ofile=sa_ofile, qcodes=prefs.shellavg_values, dt = 1e8,  nfiles = prefs.num_Shell_Avgs, path = '')
                 if (plot_Shell_Avgs):
                     titles += ['Kinetic Energy vs. Radius']+prefs.magnetic*['Magnetic Energy vs. Radius']    
             else:

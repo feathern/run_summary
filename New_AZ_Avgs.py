@@ -380,7 +380,6 @@ class AZ_Avgs:
             self.qv = qget  # Don't update the lookup table yet
             self.nq = len(self.qv)  # number of quantity codes we will extract
             
-
             self.vals  = np.zeros((self.ntheta,self.nr, self.nq, self.niter),dtype='float64')            
                 
             for q in range(self.nq):
