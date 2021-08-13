@@ -114,13 +114,13 @@ class AZ_Avgs:
         
         # Read the main file no matter what    
         self.read_dimensions(mainfile)   
-        self.read_data(qcodes=qcodes, ntheta=ntheta)
+        self.read_data(qcodes=qcodes)
         
         if (multiple_files):
             if (not time_average):
-                self.compile_multiple_files(filename, qcodes = qcodes,path=path,ntheta=ntheta)
+                self.compile_multiple_files(filename, qcodes = qcodes,path=path)
             else:
-                self.time_average_files(filename, qcodes = qcodes,path=path, ntheta=ntheta, dt = dt, nfiles = nfiles)
+                self.time_average_files(filename, qcodes = qcodes,path=path, dt = dt, nfiles = nfiles)
                 
         if (ofile != None):
             self.write(ofile)
@@ -180,8 +180,7 @@ class AZ_Avgs:
                filelist  : {list of strings} The AZ_Avgs files to be concatenated.
                path      : The directory where the files are located (if full path not in filename)
                qcodes    : {optional; list of ints} Quantity codes you wish to extract (if not all)
-               ntheta    : {optional; int; default = 0} Set this value to correct the variance in 
-                           version=2 AZ_Avgs (only mean is preserved otherwise for that version).
+
            Notes:
                 - This routine is incompatibile with version=1 AZ_Avgs due to lack of 
                   moments output in that original version.  All other versions are compatible.
@@ -229,16 +228,14 @@ class AZ_Avgs:
         self.vals = self.vals[:,:,:,0:self.niter]
 
 
-    def time_average_files(self,filelist,qcodes=[],path='',ntheta=0, dt=-1,nfiles=-1):
+    def time_average_files(self,filelist,qcodes=[],path='', dt=-1,nfiles=-1):
         """
            Time-series concatenation routine for the Shell_Avgs class.
            
            Input parameters:
                filelist  : {list of strings} The Shell_Avgs files to be time-averaged.
                path      : The directory where the files are located (if full path not in filename)
-               qcodes    : {optional; list of ints} Quantity codes you wish to extract (if not all)
-               ntheta    : {optional; int; default = 0} Set this value to correct the variance in 
-                           version=2 Shell_Avgs (only mean is preserved otherwise for that version).               
+               qcodes    : {optional; list of ints} Quantity codes you wish to extract (if not all)             
                nfiles    : optional -- number of files to read relative to last file 
                                        in the list (default is all files)
                dt        : optional -- maximum time to average over, relative to
@@ -269,17 +266,17 @@ class AZ_Avgs:
 
         # Read the initial file (last in the list). 
         # Go ahead and store the last time and iteration in that file.
-        a = AZ_Avgs(filelist[numfiles-1],qcodes=qcodes,path=path,ntheta=ntheta)
+        a = AZ_Avgs(filelist[numfiles-1],qcodes=qcodes,path=path)
         self.iters[1] = a.iters[a.niter-1]
         self.time[1] = a.time[a.niter-1]
 
         for i in range(numfiles-1,flast-1,-1):
-            print('on file: ', i)
+
             weights = np.zeros(a.niter,dtype='float64')
             
             if (i != 0):
                 #Read in the next file for time-step information
-                b = AZ_Avgs(filelist[i-1],qcodes=qcodes,path=path,ntheta=ntheta)
+                b = AZ_Avgs(filelist[i-1],qcodes=qcodes,path=path)
             
             weights[a.niter-1] = 0.5*(last_dt+a.time[a.niter-1]-a.time[a.niter-2])
             for j in range(a.niter-2,0,-1):
@@ -404,7 +401,7 @@ class AZ_Avgs:
                    
 
         """
-        print('the_file is: ', the_file)
+
         self.fd = open(the_file,'rb')        
         specs = np.fromfile(self.fd,dtype='int32',count=6)
         bcheck = specs[0]       # If not 314, we need to swap the bytes

@@ -23,10 +23,10 @@ def plot_energy_v_radius(infile, pdf, magnetic=False, min_decades=2, max_decades
     from matplotlib import pyplot as plt
     import numpy as np
     import numpy
-    from rayleigh_diagnostics import Shell_Avgs
+    from New_Shell_Avgs import Shell_Avgs
     from matplotlib import rcParams 
 
-    sa= Shell_Avgs(infile,path='',time_avg=True)
+    sa= Shell_Avgs(infile,path='')
     radius = sa.radius
 
     # Page size and margins
@@ -249,10 +249,10 @@ def plot_energy_flux(infile, pdf, magnetic=False, funits=None):
     from matplotlib import pyplot as plt
     import numpy as np
     import numpy
-    from rayleigh_diagnostics import Shell_Avgs
+    from New_Shell_Avgs import Shell_Avgs
     from matplotlib import rcParams 
 
-    sa= Shell_Avgs(infile,path='',time_avg=True)
+    sa= Shell_Avgs(infile,path='')
     radius = sa.radius
 
     # Page size and margins

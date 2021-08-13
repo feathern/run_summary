@@ -162,7 +162,7 @@ class Shell_Avgs:
         odata[0]['radius'][:]=self.radius[:]
         odata[0]['fdata']['times'][:]=self.time[0:self.niter]
         odata[0]['fdata']['iters'][:]=self.iters[0:self.niter]
-        if (self.version > 1):
+        if (self.version != 1):
             odata[0]['fdata']['vals'][:,:,:,:]=np.transpose(self.vals[:,:,:,:])
         else:
             odata[0]['fdata']['vals'][:,:,:]=np.transpose(self.vals[:,0,:,:])	

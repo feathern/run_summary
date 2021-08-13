@@ -28,8 +28,7 @@ mnames = []
 indirs = ['/home/feathern/runs/model_69_2']
 outdirs = ['/home/feathern/runs/snapshot/model_69_2']
 
-indirs = ['/home/feathern/runs/sample_out']
-outdirs = ['/home/feathern/runs/snapshot/sample_out']
+
 
 twait = 1000 # max time to wait on any command (seconds)
 
@@ -50,6 +49,9 @@ for i,v in enumerate(indirs):
     indirs[i] = indirs[i].rstrip('\n')
     outdirs[i] = outdirs[i].rstrip('\n')
 
+#indirs = ['/home/feathern/runs/sample_out']
+#outdirs = ['/home/feathern/runs/snapshot/sample_out']
+
 print(indirs)
 print(outdirs)
 
@@ -57,10 +59,10 @@ print(outdirs)
 
 process_G_Avgs        = prefs.process_G_Avgs
 process_Shell_Avgs    = prefs.process_Shell_Avgs 
-process_AZ_Avgs       = prefs.process_AZ_Avgs*0 
-process_Shell_Spectra = prefs.process_Shell_Spectra*0 
-process_Shell_Slices  = prefs.process_Shell_Slices*0 
-process_Checkpoints   = prefs.process_Checkpoints*0 
+process_AZ_Avgs       = prefs.process_AZ_Avgs 
+process_Shell_Spectra = prefs.process_Shell_Spectra 
+process_Shell_Slices  = prefs.process_Shell_Slices 
+process_Checkpoints   = prefs.process_Checkpoints 
 
 plot_G_Avgs        = prefs.plot_G_Avgs
 plot_Shell_Avgs    = prefs.plot_Shell_Avgs
@@ -76,6 +78,11 @@ process_data = process_G_Avgs or process_Shell_Avgs or process_AZ_Avgs or proces
 
 
 titles=[]
+
+have_Shell_Spectra = False
+have_Shell_Slices = False
+
+
 for i,indir in enumerate(indirs):
     input_dir= indir
     output_dir = outdirs[i]
@@ -147,7 +154,7 @@ for i,indir in enumerate(indirs):
             if (len(azfiles) > 0):
                 have_AZ_Avgs = True
                 az_ofile=snapdir+'/AZ_Avgs.dat'
-                TimeAvg_AZAverages(azfiles,az_ofile, qcodes=prefs.azavg_values, dt = 1e8,  nfiles = prefs.num_AZ_Avgs)                
+                az = AZ_Avgs(azfiles,ofile=az_ofile, qcodes=prefs.azavg_values, dt = 1e8,  nfiles = prefs.num_AZ_Avgs,path ='')                
                 if (plot_AZ_Avgs):
                     titles += ['Kinetic Energy vs. Radius']+prefs.magnetic*['Magnetic Energy vs. Radius']        
             else:
@@ -164,7 +171,7 @@ for i,indir in enumerate(indirs):
             if (len(spfiles) > 0):
                 have_Shell_Spectra = True
                 sp_ofile=snapdir+'/Shell_Spectra.dat'
-                TimeAvg_ShellSpectra(spfiles,sp_ofile, qcodes=prefs.shell_spectra_values, nfiles = prefs.num_Shell_Spectra)
+                ss = Shell_Spectra(spfiles,ofile = sp_ofile, qcodes=prefs.shell_spectra_values, nfiles = prefs.num_Shell_Spectra, path = '')
                 if (plot_Shell_Spectra):
                     titles += ['Kinetic Energy Spectrum']+prefs.magnetic*['Magnetic Energy Spectrum']               
             else:

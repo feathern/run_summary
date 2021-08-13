@@ -1,3 +1,5 @@
+import numpy as np
+import numpy
 maxq =4000
 class Shell_Spectra:
     """Rayleigh Shell Spectrum Structure
@@ -313,7 +315,7 @@ class Shell_Spectra:
 
         dims.tofile(fd)
         self.qv.tofile(fd)
-        print('saving qv: ',self.qv)
+
         self.radius.tofile(fd)
         self.inds.tofile(fd)
         for i in range(self.niter):
@@ -376,3 +378,33 @@ class Shell_Spectra:
         self.inds = self.inds - 1
         # Build the lookup table
         self.lut = get_lut(self.qv)
+        
+def check_endian(fd,sig,sigtype):
+    # returns False if first element read from file matches sig
+    # True otherwise
+    chk = np.fromfile(fd,dtype=sigtype,count=1)
+    if (chk == sig):
+        return False
+    else:
+        return True
+
+maxq = 4000
+
+def get_lut(quantities):
+    """return the lookup table based on the quantity codes"""
+    nq = len(quantities)
+    lut = np.zeros(maxq) + maxq
+    for i,q in enumerate(quantities):
+        if ((0 <= q) and ( q <= maxq-1)): # quantity must be in [0, maxq-1]
+            lut[q] = i
+    return lut.astype('int32')
+    
+def swapread(fd,dtype='float64',count=1,swap=False):
+        #simple wrapper to numpy.fromfile that allows byteswapping based on Boolean swap
+        if (swap):
+                val = np.fromfile(fd,dtype=dtype,count=count).byteswap()
+        else:
+                val = np.fromfile(fd,dtype=dtype,count=count)
+        if (len(val) == 1):
+                val = val[0]
+        return val
